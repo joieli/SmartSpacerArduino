@@ -34,8 +34,18 @@ void loop() {
   if(Serial.available()){
     fileName = Serial.readStringUntil('\n');
     if(fileName == "ALL"){
-      SD.remove("data.txt");
-      SD.remove("config.txt");
+      File dir = SD.open("/");
+      while (true) {
+        File entry =  dir.openNextFile();
+        if (! entry) {
+          // no more files
+          break;
+        }
+        SD.remove(entry.name());
+        Serial.print("  Removing ");
+        Serial.println(entry.name());
+        entry.close();
+      }
       Serial.println("Removed all files");
       Serial.println();
     }
