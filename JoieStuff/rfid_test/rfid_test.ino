@@ -3,8 +3,6 @@
 #include <PN532.h>
 #include <NfcAdapter.h>
 
-#define TAG_TIMEOUT 500  // Timeout for tag reading (500 ms)
-
 PN532_I2C pn532_i2c(Wire);
 NfcAdapter nfc = NfcAdapter(pn532_i2c);
 
