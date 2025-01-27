@@ -3,6 +3,8 @@
 #include <PN532.h>
 #include <NfcAdapter.h>
 
+#define TAG_TIMEOUT 500  // Timeout for tag reading (500 ms)
+
 PN532_I2C pn532_i2c(Wire);
 NfcAdapter nfc = NfcAdapter(pn532_i2c);
 
@@ -31,9 +33,10 @@ class Inhaler {
 bool hasInhaler = false;
 Inhaler curInhaler;
 
-
 void setup(void) {
-    Serial.begin(9600);
+    Serial.begin(115200);
+    while (!Serial);
+    Serial.println("====================CODE BEGINS===========");
     Serial.println("NDEF Reader");
     nfc.begin();
     Serial.println();
@@ -41,11 +44,13 @@ void setup(void) {
 
 void loop(void) {
     //toggle between hasInhaler and does not have inhlaer modes
-    if (nfc.tagPresent() && hasInhaler == false)
+    bool hasTag = nfc.tagPresent(10);
+    if (hasTag && hasInhaler == false)
     {
       NfcTag tag = nfc.read();
       Serial.println(tag.getTagType());
-      Serial.print("UID: ");Serial.println(tag.getUidString());
+      Serial.print("UID: ");
+      Serial.println(tag.getUidString());
 
       if (tag.hasNdefMessage()) // every tag won't have a message
       {
@@ -115,7 +120,7 @@ void loop(void) {
         Serial.println("INHALER FOUND---------------------"); 
       }
     }
-    else if (nfc.tagPresent() == false && hasInhaler == true)
+    else if (hasTag == false && hasInhaler == true)
     {
       hasInhaler = false;
       curInhaler = Inhaler();
