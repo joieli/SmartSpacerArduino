@@ -10,6 +10,8 @@ volatile unsigned long lastMillis = 0;  // Time of the last interrupt in millis(
 unsigned long nowMillis = 0;      // Milliseconds since the last interrupt (interrupts occur ever second)
 String nowString;
 
+
+
 void setup () {
   Serial.begin(9600);
 
@@ -40,7 +42,7 @@ void setup () {
 void loop () {
     DateTime now = rtc.now();
     unsigned long currentMillis = millis();
-    nowMillis = currentMillis - lastMillis;
+    nowMillis = currentMillis%1000;
 
 
 
