@@ -1,3 +1,5 @@
+//works on uno
+
 //libraries
 #include <Wire.h>
 #include <PN532_I2C.h>
@@ -6,9 +8,9 @@
 #include "RTClib.h"
 
 //pins etc.
+RTC_DS3231 rtc;
 PN532_I2C pn532_i2c(Wire);
 NfcAdapter nfc = NfcAdapter(pn532_i2c);
-RTC_DS3231 rtc;
 
 //classes
 class Inhaler {
@@ -40,11 +42,9 @@ volatile unsigned long lastMillis = 0;  // Time of the last interrupt in millis(
 
 //SETUP BLOCK==================================================================================================================
 void setup(void) {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
-#ifndef ESP8266
   while (!Serial); // wait for serial port to connect. Needed for native USB
-#endif
 
   Serial.println("=========================START============================================");
   Serial.println("Searching for NDEF Reader ");
@@ -72,7 +72,8 @@ void setup(void) {
 //LOOP BLOCK====================================================================================================
 void loop(void) {
     //toggle between hasInhaler and does not have inhlaer modes
-    if (nfc.tagPresent() && hasInhaler == false)
+    bool hasTag = nfc.tagPresent(10);
+    if (hasTag && hasInhaler == false)
     {
       NfcTag tag = nfc.read();
 
@@ -124,7 +125,7 @@ void loop(void) {
         curInhaler.print();
       }
     }
-    else if (nfc.tagPresent() == false && hasInhaler == true)
+    else if (hasTag == false && hasInhaler == true)
     {
       hasInhaler = false;
       curInhaler = Inhaler();
