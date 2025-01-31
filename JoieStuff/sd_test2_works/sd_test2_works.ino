@@ -19,6 +19,10 @@ SdFile root;
 const char *dataFileName = "data.txt";
 const char *configFileName = "config.txt";
 
+JsonDocument recordDoc;
+JsonObject record;
+JsonArray details;
+
 //fileContent
 struct Config{
   String userID;
@@ -114,22 +118,41 @@ void loop(void) {
   delay(1000);
   Serial.println("Iteration" + String(i) + "==============================================================================================================");
   if(i%5 == 0){
-    //log spacer stuff
+    //change config file
     config.userID = "00000" + String(i);
     config.spacerUDI = "SPACER12345";
     config.PEFRActive = true;
     config.baseline = 522;
 
     rewriteConfigFile(configFileName, config);
+
+    //get inhaler data
+      record = recordDoc.to<JsonObject>();
+      details = record.createNestedArray("details");
+      
+      record["userID"] = "123456789";
+      record["spacerUDI"] = "SPACER12345";
+      record["dataType"] = "medication";
+      record["startTime"] = "1111-11-11";
+      record["medicationType"] = "blue";
+      serializeJsonPretty(record, Serial);
+      Serial.println();
   }
   else if (i%5 == 4){
-    appendToFile(dataFileName, "Happy " + String(i));
+    //saving data entry into SD card
+    appendJson(dataFileName, record);
+    recordDoc.clear();
   }
   else{
-    Serial.println(F("MAKE FILE BIGGEER"));
+    //logging flow data
+    JsonObject entry = details.createNestedObject();
+    entry["value"] = "value" + i;
+    entry["zone"] = "green " + i;
+    entry["timestamp"] = "YYYY-MM-DD";
+    
+    serializeJsonPretty(record, Serial);
+    Serial.println();
   }
-
-
   printContents(dataFileName);
   printContents(configFileName);
   i++;
@@ -149,21 +172,8 @@ void printContents(const char *fileName){
   }
   else{
     Serial.print(F("    error opening "));
-    Serial.print(fileName);
-  }
-}
-
-void appendToFile(const char *fileName, String content){
-  File file = SD.open(fileName, FILE_WRITE);
-  if (!file) {
-    Serial.print(F("Failed to create file: "));
     Serial.println(fileName);
-    return;
   }
-
-  //Serial.println("  content appended to " + String(fileName));
-  file.println(content);
-  file.close();
 }
 
 void rewriteConfigFile(const char *filename, Config config){
@@ -192,6 +202,29 @@ void rewriteConfigFile(const char *filename, Config config){
 
   // Serialize JSON to file
   if (serializeJsonPretty(root, file) == 0) {
+    Serial.print(F("  Failed to write to "));
+    Serial.println(filename);
+  }
+  else{
+    //Serial.println("   Updated " + String(filename));
+  }
+  file.println();
+
+  // Close the file
+  file.close();
+}
+
+void appendJson(const char *filename, JsonObject record){
+  // Open file for writing
+  File file = SD.open(filename, FILE_WRITE);
+  if (!file) {
+    Serial.print(F("Failed to create file: "));
+    Serial.println(filename);
+    return;
+  }
+
+  // Serialize JSON to file
+  if (serializeJsonPretty(record, file) == 0) {
     Serial.print(F("  Failed to write to "));
     Serial.println(filename);
   }
