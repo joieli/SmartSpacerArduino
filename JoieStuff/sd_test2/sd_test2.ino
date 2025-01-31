@@ -16,199 +16,203 @@
 Sd2Card card;
 SdVolume volume;
 SdFile root;
-const char *dataFileName = "data.txt";
-const char *configFileName = "config.txt";
+String configFileName = "config.txt";
+String eventFileName = "YYYY.txt";
+
+JsonDocument headerDoc;
+JsonObject header;
 
 //fileContent
 struct Config{
   String userID;
   String spacerUDI;
+  bool PEFRActive;
+  int baseline;
 };
+
+
+int PEFRvals[4] = {111,222,333,444};
 
 Config config;
 
-JsonDocument recordDoc;
-JsonObject record;
-JsonArray details;
-
 const int chipSelect = 10;
 
-void setup() {
+int i = 0;
+
+void setup() {  
   // Open serial communications and wait for port to open:
   Serial.begin(9600);
   while (!Serial){;}
 
-  Serial.println("Initializing SD card...");
+  Serial.println(F("Initializing SD card..."));
 
   if (!SD.begin(chipSelect)) {
-    Serial.println("Initialization failed!");
+    Serial.println(F("Initialization failed!"));
     while (true);
   }
 
-  Serial.println("Initialization done. SD Card found.");
+  Serial.println(F("Initialization done. SD Card found."));
 
   card.init(SPI_HALF_SPEED, chipSelect);
   // print the type of card
-  Serial.print("    Card type:         ");
+  Serial.print(F("    Card type:         "));
   switch (card.type()) {
     case SD_CARD_TYPE_SD1:
-      Serial.println("SD1");
+      Serial.println(F("SD1"));
       break;
     case SD_CARD_TYPE_SD2:
-      Serial.println("SD2");
+      Serial.println(F("SD2"));
       break;
     case SD_CARD_TYPE_SDHC:
-      Serial.println("SDHC");
+      Serial.println(F("SDHC"));
       break;
     default:
-      Serial.println("Unknown");
+      Serial.println(F("Unknown"));
   }
 
   //printing directory
   File root = SD.open("/");
   printDirectory(root, 0);
-
-  //read data.txt if it exists
-  Serial.println();
-  Serial.println("Checking for the existence of " + String(dataFileName));
-  if (SD.exists(dataFileName)){
-    Serial.println("    " + String(dataFileName) + " already exists");
-    Serial.println("Printing existing content...");
-
-    printContents(dataFileName);
-  }
-  else{
-    Serial.println("    " + String(dataFileName) + " does not exist");
-  }
+  root.close();
 
   //read config.txt if it exists
   Serial.println();
-  Serial.println("Checking for the existence of " + String(configFileName));
+  Serial.print(F("Checking for the existence of "));
+  Serial.println(configFileName);
   if (SD.exists(configFileName)){
-    Serial.println("    "+ String(configFileName) +" already exists");
-    Serial.println("Printing existing content...");
+    Serial.print(F("    ")); 
+    Serial.print(configFileName);
+    Serial.println(F(" already exists"));
+    Serial.println(F("Printing existing content..."));
 
     printContents(configFileName);
   }
   else{
-    Serial.println("    "+ String(configFileName) +" does not exist");
+    Serial.print(F("    ")); 
+    Serial.print(configFileName);
+    Serial.println(F(" does not exist"));
   }
+
+  delay(5000);
 }
 
 void loop(void) {
-  delay(2000);
-  for(int i = 1; i <= 10; i++ ){
-    Serial.println("Iteration" + String(i) + "==============================================================================================================");
-    //Test code
-    /*
-    if (i == 1){
-      //beginning of inhalation
-      record = recordDoc.to<JsonObject>();
-      details = record.createNestedArray("details");
-      
-      record["userID"] = "123456789";
-      record["spacerUDI"] = "SPACER12345";
-      record["dataType"] = "medication";
-      record["startTime"] = "1111-11-11";
-      record["medicationType"] = "blue";
-      serializeJsonPretty(record, Serial);
-      Serial.println();
-    }
-    else if (i>1 && i<=4){
-      //adding inhalation data
-      JsonObject entry = details.createNestedObject();
-      entry["value"] = "value" + i;
-      entry["zone"] = "green " + i;
-      entry["timestamp"] = "YYYY-MM-DD";
-      
-      serializeJsonPretty(record, Serial);
-      Serial.println();
-    }
-    else if (i==5){
-      //end of inhalation
-      appendJson(dataFileName, record);
-      recordDoc.clear();
-    }
-    else if (i ==6){
-      //beginning of exhalation
+  delay(1000);
+  Serial.println("Iteration" + String(i) + "==============================================================================================================");
+  if(i%5 == 0){
+    //change config file
+    config.userID = "11223300000" + String(i);
+    config.spacerUDI = F("SPACER12345ABC222");
+    config.PEFRActive = true;
+    config.baseline = 522;
 
-    }
-    else if (i>6 && i<10){
-      //adding exhalation data
-
-    }
-    else if (i==10){
-      //end of exhalation
-    }
-    */
-
-    appendToFile(dataFileName, "Happy " + String(i));
-    delay(1000);
-
-    config.userID = "00000" + String(i);
-    config.spacerUDI = "SPACER12345";
     rewriteConfigFile(configFileName, config);
 
+    //get inhaler data
+    header = headerDoc.to<JsonObject>();
+    header[F("jsonContent")] = F("header");
+    header[F("userID")] = config.userID;
+    header[F("spacerUDI")] = config.spacerUDI;
+    header[F("dataType")] = F("medication");
+    header[F("startTime")] = F("1111-11-1111");
+    header[F("medicationType")] = F("blue");
 
-    printContents(dataFileName);
-    printContents(configFileName);
-    delay(1000);
+    eventFileName = "YYYY_" + String(i) + ".txt";
+    Serial.print(F("============FILENAME: "));
+    Serial.println(eventFileName);
   }
+  else if (i%5 == 4){
+    
+    //creating writing PEFRS header entry
+    JsonArray PEFRs = header.createNestedArray("PEFRs");
+    for(int index = 0; index < 4; index++){
+      JsonObject entry = PEFRs.createNestedObject();
+      entry[F("trial")] = index+1;
+      entry[F("value")] = "value " + String(PEFRvals[index]);
+      entry[F("percentage")] = F("78%");
+      entry[F("timestamp")] = F("YYYY-MM-DD");
+    }
+
+    //creating avePEFR header entry
+    JsonObject avePEFR = header.createNestedObject("avePEFR");
+    avePEFR[F("value")] = "value" + String(i);
+    avePEFR[F("percentage")] = F("78%");
+
+    //saving header into SD card
+    serializeJsonPretty(header,Serial);
+    Serial.println();
+
+    appendJson(eventFileName, header);
+    headerDoc.clear();
+  }
+  else{
+    //logging flow data
+    JsonDocument detailsDoc;
+    JsonObject details = detailsDoc.to<JsonObject>();
+    details[F("jsonContent")] = F("details");
+    details[F("trial")] = i;
+    details[F("value")] = "value" + String(i);
+    details[F("percentage")] = F("78%");
+    details[F("zone")] = "green " + String(i);
+    details[F("timestamp")] = F("YYYY-MM-DD");
+    
+    serializeJsonPretty(details, Serial);
+    Serial.println();
+    appendJson(eventFileName, details);
+    detailsDoc.clear();
+  }
+  printContents(eventFileName);
+  printContents(configFileName);
+  i++;
 }
 
-void printContents(const char *fileName){
+void printContents(String fileName){
   File file = SD.open(fileName);
   if (file) {
-    Serial.println("BEGINNING OF " + String(fileName) + "=========================");
+    Serial.print(F("BEGINNING OF "));
+    Serial.print(fileName);
+    Serial.println(F("========================="));
     while (file.available()) {
       Serial.write(file.read());
     }
   file.close();
-  Serial.println("END OF DOCUMENT=========================");
+  Serial.println(F("END OF DOCUMENT========================="));
   }
   else{
-    Serial.println("    error opening " + String(fileName));
+    Serial.print(F("    error opening: "));
+    Serial.println(fileName);
   }
 }
 
-void appendToFile(const char *filename, String content){
-  File file = SD.open(filename, FILE_WRITE);
-  if (!file) {
-    Serial.println("Failed to create file: " + String(filename));
-    return;
-  }
+void rewriteConfigFile(String filename, Config config){
+  JsonDocument doc;
+  JsonObject root= doc.to<JsonObject>();
 
-  Serial.println("  content appended to " + String(filename));
-  file.println(content);
-  file.close();
-}
-
-void rewriteConfigFile(const char *filename, Config config){
+  // Set the values in the document
+  root["userID"] = config.userID;
+  root["spacerUDI"] = config.spacerUDI;
+  root["PEFRActive"] = config.PEFRActive;
+  root["baseline"] = config.baseline;
+  
   //remove exisitng config file to rewrite
   SD.remove(filename);
   
   // Open file for writing
   File file = SD.open(filename, FILE_WRITE);
   if (!file) {
-    Serial.println("Failed to create file: " + String(filename));
+    Serial.print(F("Failed to create file: "));
+    Serial.println(filename);
     return;
   }
 
-  // Allocate a temporary JsonDocument
-  // Don't forget to change the capacity to match your requirements.
-  // Use arduinojson.org/assistant to compute the capacity.
-  StaticJsonDocument<256> doc;
-
-  // Set the values in the document
-  doc["userID"] = config.userID;
-  doc["spacerUDI"] = config.spacerUDI;
-
   // Serialize JSON to file
-  if (serializeJsonPretty(doc, file) == 0) {
-    Serial.println("  Failed to write to " + String(filename));
+  if (serializeJsonPretty(root, file) == 0) {
+    Serial.print(F("  Failed to write to "));
+    Serial.println(filename);
   }
   else{
-    Serial.println("   Updated " + String(filename));
+    Serial.print(F("   Updated "));
+    Serial.println(filename);
   }
   file.println();
 
@@ -216,20 +220,23 @@ void rewriteConfigFile(const char *filename, Config config){
   file.close();
 }
 
-void appendJson(const char *filename, JsonObject record){
+void appendJson(String filename, JsonObject json){
   // Open file for writing
   File file = SD.open(filename, FILE_WRITE);
   if (!file) {
-    Serial.println("Failed to create file: " + String(filename));
+    Serial.print(F("Failed to create file: "));
+    Serial.println(filename);
     return;
   }
 
   // Serialize JSON to file
-  if (serializeJsonPretty(record, file) == 0) {
-    Serial.println("  Failed to write to " + String(filename));
+  if (serializeJsonPretty(json, file) == 0) {
+    Serial.print(F("  Failed to write to "));
+    Serial.println(filename);
   }
   else{
-    Serial.println("   Updated " + String(filename));
+    Serial.print(F("   Updated "));
+    Serial.println(filename);
   }
   file.println();
 
@@ -248,14 +255,14 @@ void printDirectory(File dir, int numTabs) {
     for (uint8_t i = 0; i < numTabs; i++) {
       Serial.print('\t');
     }
-    Serial.print("  ");
+    Serial.print(F("  "));
     Serial.print(entry.name());
     if (entry.isDirectory()) {
-      Serial.println("/");
+      Serial.println(F("/"));
       printDirectory(entry, numTabs + 1);
     } else {
       // files have sizes, directories do not
-      Serial.print("\t\t");
+      Serial.print(F("\t\t"));
       Serial.println(entry.size(), DEC);
     }
     entry.close();
