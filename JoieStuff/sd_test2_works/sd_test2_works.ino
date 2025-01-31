@@ -16,8 +16,8 @@
 Sd2Card card;
 SdVolume volume;
 SdFile root;
-const char *dataFileName = "data.txt";
-const char *configFileName = "config.txt";
+String dataFileName = "data.txt";
+String configFileName = "config.txt";
 
 JsonDocument recordDoc;
 JsonObject record;
@@ -71,6 +71,7 @@ void setup() {
   //printing directory
   File root = SD.open("/");
   printDirectory(root, 0);
+  root.close();
 
   //read data.txt if it exists
   Serial.println();
@@ -158,7 +159,7 @@ void loop(void) {
   i++;
 }
 
-void printContents(const char *fileName){
+void printContents(String fileName){
   File file = SD.open(fileName);
   if (file) {
     Serial.print(F("BEGINNING OF "));
@@ -176,7 +177,7 @@ void printContents(const char *fileName){
   }
 }
 
-void rewriteConfigFile(const char *filename, Config config){
+void rewriteConfigFile(String filename, Config config){
   //remove exisitng config file to rewrite
   SD.remove(filename);
   
@@ -214,7 +215,7 @@ void rewriteConfigFile(const char *filename, Config config){
   file.close();
 }
 
-void appendJson(const char *filename, JsonObject record){
+void appendJson(String filename, JsonObject record){
   // Open file for writing
   File file = SD.open(filename, FILE_WRITE);
   if (!file) {

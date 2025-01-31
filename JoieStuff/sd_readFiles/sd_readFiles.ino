@@ -25,6 +25,7 @@ void setup() {
   root = SD.open("/");
 
   printDirectory(root, 0);
+  root.close();
 
   Serial.println();
   Serial.println("Which file do you want to read?");
