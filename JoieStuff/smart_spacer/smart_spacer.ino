@@ -8,7 +8,7 @@
 #include "RTClib.h"
 
 //pins etc.
-RTC_DS3231 rtc;
+RTC_PCF8523 rtc;
 PN532_I2C pn532_i2c(Wire);
 NfcAdapter nfc = NfcAdapter(pn532_i2c);
 

@@ -1,9 +1,7 @@
 // Date and time functions using a DS3231 RTC connected via I2C and Wire lib
 #include "RTClib.h"
 
-RTC_DS3231 rtc;
-// Define the interrupt pin  (MUST BE 2 OR 3)
-const int interruptPin = 2; 
+RTC_PCF8523 rtc;
 
 //vars for millisecond tracking
 volatile unsigned long lastMillis = 0;  // Time of the last interrupt in millis()
@@ -30,13 +28,6 @@ void setup () {
     Serial.println("RTC lost power, let's set the time!");
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__))); //sets the current time to the time in which the the code was compiled
   }
-
-  // Configure the interrupt pin (pin 2 in this case)
-  pinMode(interruptPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), updateLastMillis, FALLING);  // Trigger on falling edge
-
-  // Configure RTC to trigger interrupt every 1 second
-  rtc.writeSqwPinMode(DS3231_SquareWave1Hz);  // Set the square wave to 1Hz (1 second interval)
 }
 
 void loop () {
