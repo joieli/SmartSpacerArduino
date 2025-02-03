@@ -117,7 +117,7 @@ void loop(void) {
     header[F("startTime")] = F("1111-11-1111");
     header[F("medicationType")] = F("blue");
 
-    eventFileName = "YYYY_" + String(i) + ".txt";
+    eventFileName = "_" + String(i) + ".txt";
     Serial.print(F("============FILENAME: "));
     Serial.println(eventFileName);
   }

@@ -58,7 +58,7 @@ void loop() {
     Serial.println("LIST OF DOCUMENTS=========");
     root = SD.open("/");
     printDirectory(root, 0);
-    root.close()
+    root.close();
   }
   
 }
