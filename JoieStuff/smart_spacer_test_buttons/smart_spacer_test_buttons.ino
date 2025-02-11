@@ -59,6 +59,9 @@ Inhaler curInhaler; //intializing an inhaler object
 class PeakFlowRateTest {
   public:
     int vals[4];
+    int percents[4];
+    int attemptNum[4];
+    String timestamps[4];
     String startTime;
 
     void print() {
@@ -66,6 +69,18 @@ class PeakFlowRateTest {
       Serial.print(F("  vals: ["));
       for (int i=0; i<4; i++){
         Serial.print(vals[i]+",");
+      }
+      Serial.println("]");
+      
+      Serial.print(F("  percents: ["));
+      for (int i=0; i<4; i++){
+        Serial.print(percents[i]+",");
+      }
+      Serial.println("]");
+      
+      Serial.print(F("  attemptNum: ["));
+      for (int i=0; i<4; i++){
+        Serial.print(attemptNum[i]+",");
       }
       Serial.println("]");
       Serial.print(F("  startTime: "));
@@ -355,6 +370,7 @@ void loop(void) {
         PEFRTest.startTime = getTime();
         for (int i = 0; i < 4; i++) {
           PEFRTest.vals[i] = 0; //initialize PEFR values for each trial to 0
+          PEFRTest.attemptNum[i] = 1; //initalize PEFR attempt num to 1
         }
         Serial.println("PEFR TEST INITIATED---------------------"); 
         Serial.print("Time: ");
@@ -364,16 +380,19 @@ void loop(void) {
       //fourth priority deactivate exhalation mode
       else if(inPEFRMode == true && PEFRTrial == 3 && nextPressed == true)
       {
+        //complete the header
+        Serial.println("PEFR TEST COMPLETE---------------------"); 
+        Serial.print(F("Saving the following data to: "));
+        Serial.println(eventFileName);
+        logExhalationHeader(eventFileName, PEFRTest);
+        Serial.println();
+
+        //Reset
         inPEFRMode = false;
         PEFRTrial = -1;
         PEFRAttempt = 1;
-
-        //ToDo: complete the header
-        eventFileName = "UNKNOWN.TXT"; //reset eventFileName
-        PEFRTest = PeakFlowRateTest(); //clear the PEFRTest object
-        Serial.println("PEFR TEST COMPLETE---------------------"); 
-        Serial.print("Time: ");
-        Serial.println(getTime());
+        eventFileName = "UNKNOWN.TXT";
+        PEFRTest = PeakFlowRateTest(); 
       }
     }
 
@@ -426,6 +445,7 @@ void loop(void) {
       {
         //Todo: Redoo flow and lights
         PEFRAttempt += 1;
+        PEFRTest.attemptNum[PEFRTrial] = PEFRAttempt;
         Serial.println("REDO MEEEEE");
       }
 
@@ -441,8 +461,11 @@ void loop(void) {
         exhalationDetail.timestamp = getTime();
         exhalationDetail.percentage = flowRate*100/config.baseline; //ToDo: find percentage based on flowrate and baseline
 
+        //If we reached a new peak
         if (flowRate > PEFRTest.vals[PEFRTrial]){
           PEFRTest.vals[PEFRTrial] = flowRate;
+          PEFRTest.percents[PEFRTrial] = exhalationDetail.percentage;
+          PEFRTest.timestamps[PEFRTrial] = exhalationDetail.timestamp;
         }
 
         JsonDocument detailsDoc;
@@ -620,6 +643,34 @@ void logMedicationHeader(String filename, Inhaler curInhaler){
   medicationType[F("color")] = curInhaler.color;
   medicationType[F("commercialName")] = curInhaler.commercialName;
   medicationType[F("medication")] = curInhaler.medication;
+
+  serializeJsonPretty(header,Serial);
+  Serial.println();
+
+  appendJson(filename, header);
+  headerDoc.clear();
+  return;
+}
+
+void logExhalationHeader(String filename, PeakFlowRateTest PEFRTest){
+  header = headerDoc.to<JsonObject>();
+  header[F("jsonContent")] = F("header");
+  header[F("userID")] = config.userID;
+  header[F("spacerUDI")] = config.spacerUDI;
+  header[F("dataType")] = F("exhalation");
+  header[F("startTime")] = PEFRTest.startTime;
+
+  JsonArray PEFRs = header.createNestedArray(F("PEFRs"));
+  for(int index = 0; index < 4; index++){
+    JsonObject entry = PEFRs.createNestedObject();
+    entry[F("trial")] = index+1;
+    entry[F("attempt")] = PEFRTest.attemptNum[index];
+    entry[F("flowRate")] = String(PEFRTest.vals[index]) + " L/min";
+    entry[F("percentage")] = String(PEFRTest.percents[index]) + "%";
+    entry[F("timestamp")] = PEFRTest.timestamps[index];
+  }
+
+  //ToDo: Potentially do some calculations to determine avePEFR on the arduino
 
   serializeJsonPretty(header,Serial);
   Serial.println();
