@@ -4,12 +4,17 @@ const int nextPin = 11;
 boolean ledOn = false;
 
 const int debounceDelay = 85;  // Debounce delay in milliseconds
+const unsigned long longPressThreshold = 3000;  // 3 seconds threshold
 
 bool nextPressed = false;
 bool redoPressed = false;
+bool nextButtonHeld = false;
 
 unsigned long nextLastPressTime = 0;
 unsigned long redoLastPressTime = 0;
+unsigned long nextButtonPressStartTime = 0;
+
+bool nextWasHeld = false;
 
 void setup() {
   pinMode(led, OUTPUT);
@@ -22,16 +27,30 @@ void setup() {
 }
 
 void loop() {
+
+  checkNextHold();
+
   // Check if the next button was pressed
   if (nextPressed) {
     nextPressed = false;
+
+    Serial.println("NextButtonPressed");
     ledOn = !ledOn;  // Toggle the LED state
   }
 
   // Check if the redo button was pressed
   if (redoPressed) {
     redoPressed = false;
+
+    Serial.println("RedoPressed");
     ledOn = !ledOn;  // Toggle the LED state
+  }
+
+  if (nextButtonHeld) {
+    nextButtonHeld=false;
+    
+    Serial.println("NextButtonHeld");
+    ledOn = !ledOn;  // For example, turn the LED on if held for long
   }
 
   digitalWrite(led, ledOn);  // Update the LED state
@@ -41,8 +60,13 @@ void loop() {
 void nextButtonISR() {
   // Check if enough time has passed since the last press
   if (millis() - nextLastPressTime > debounceDelay) {
-    nextPressed = true;
-    nextLastPressTime = millis();  // Update the last press time
+    if(nextWasHeld){
+      nextWasHeld=false;
+    }
+    else{
+      nextPressed = true;
+      nextLastPressTime = millis();  // Update the last press time
+    }
   }
 }
 
@@ -54,3 +78,16 @@ void redoButtonISR() {
     redoLastPressTime = millis();  // Update the last press time
   }
 }
+
+void checkNextHold(){
+  // Check if the next button has been held for more than 3 seconds
+  bool pinVal = digitalRead(nextPin);
+  if (pinVal==HIGH && (millis() - nextButtonPressStartTime) > longPressThreshold && nextWasHeld==false){
+    nextButtonHeld = true;
+    nextWasHeld = true;
+  }
+  else if (pinVal == LOW){
+    nextButtonPressStartTime = millis();
+  }
+}
+
