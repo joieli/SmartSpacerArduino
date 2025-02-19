@@ -146,11 +146,14 @@ bool spacerAttached = false;
 int PEFRTrial = -1;
 int PEFRAttempt = 1;
 bool inPEFRMode = false;
-bool lastNextState = false;
-bool lastRedoState = false;
+
 bool nextPressed = false;
 bool redoPressed = false;
-
+bool nextButtonHeld = false;
+bool nextWasHeld = false;
+unsigned long nextLastPressTime = 0;
+unsigned long redoLastPressTime = 0;
+unsigned long nextButtonPressStartTime = 0;
 
 //file vars
 Sd2Card card;
@@ -162,7 +165,8 @@ JsonDocument headerDoc;
 JsonObject header;
 
 //Misc vars
-const int debounceDelay=85;
+const int debounceDelay = 95; 
+const unsigned long longPressThreshold = 3000;
 
 
 //SETUP BLOCK==================================================================================================================
@@ -269,8 +273,12 @@ void setup(void) {
 
   // initializing pins:
   pinMode(spacerPin, INPUT);
-  pinMode(nextPin, INPUT);
-  pinMode(redoPin, INPUT);
+  pinMode(nextPin, INPUT_PULLUP);
+  pinMode(redoPin, INPUT_PULLUP);
+
+  // Attach interrupts to the buttons
+  attachInterrupt(digitalPinToInterrupt(nextPin), nextButtonISR, FALLING);
+  attachInterrupt(digitalPinToInterrupt(redoPin), redoButtonISR, FALLING);
 }
 
 //LOOP BLOCK====================================================================================================
@@ -356,10 +364,12 @@ void loop(void) {
     }
     else if(config.PEFRActive == true && hasInhaler == false && hasTag == false)  //third priority is toggling the isPEFRMode on and off/moving to next trial
     {
-      nextPressed = debounce(nextPin, lastNextState);
-      //third priority toggle exhalation mode on
-      if(inPEFRMode == false && nextPressed == true)
+      checkNextHold(); //check if the next button is being held
+
+      //third priority toggle exhalation mode on when next is held
+      if(inPEFRMode == false && nextButtonHeld == true)
       {
+        nextButtonHeld = false; //reset the nextButtonHeld flag
         inPEFRMode = true;
 
         int fileCount= countFiles();
@@ -368,10 +378,13 @@ void loop(void) {
         eventFileName = (String)tempFileName;
 
         PEFRTest.startTime = getTime();
+        
+        //initialize PEFR value and attempt values]
         for (int i = 0; i < 4; i++) {
           PEFRTest.vals[i] = 0; //initialize PEFR values for each trial to 0
           PEFRTest.attemptNum[i] = 1; //initalize PEFR attempt num to 1
         }
+
         Serial.println("PEFR TEST INITIATED---------------------"); 
         Serial.print("Time: ");
         Serial.println(PEFRTest.startTime);
@@ -380,6 +393,8 @@ void loop(void) {
       //fourth priority deactivate exhalation mode
       else if(inPEFRMode == true && PEFRTrial == 3 && nextPressed == true)
       {
+        nextPressed = false; // reset the nextPressed flag
+
         //complete the header
         Serial.println("PEFR TEST COMPLETE---------------------"); 
         Serial.print(F("Saving the following data to: "));
@@ -389,7 +404,7 @@ void loop(void) {
 
         //Reset
         inPEFRMode = false;
-        PEFRTrial = -1;
+        PEFRTrial = 0;
         PEFRAttempt = 1;
         eventFileName = "UNKNOWN.TXT";
         PEFRTest = PeakFlowRateTest(); 
@@ -428,11 +443,10 @@ void loop(void) {
     else if (inPEFRMode == true)
     {
       //ToDo: blink LED based on trial number
-
-      //check if redo or next button has been pressed
-      bool redoPressed = debounce(redoPin, lastRedoState);
       if (nextPressed == true)
       {
+        nextPressed = false; //reset nextPressed flag
+
         PEFRTrial += 1; //move onto the next trial
         PEFRAttempt = 1; //reset attempts
         Serial.print(F("TRIAL "));
@@ -443,7 +457,8 @@ void loop(void) {
       }
       else if (redoPressed == true)
       {
-        //Todo: Redoo flow and lights
+        redoPressed = false; //reset the redoPressed flag
+
         PEFRAttempt += 1;
         PEFRTest.attemptNum[PEFRTrial] = PEFRAttempt;
         Serial.println("REDO MEEEEE");
@@ -496,7 +511,7 @@ void loop(void) {
   {
     //ToDo: blutooth searching at a slower rate
     Serial.println(F("CONNECT SPACER"));
-    delay(5000);
+    delay(5000); //adjust delay if necessary
   }
 }
 
@@ -707,17 +722,35 @@ int countFiles() {
   return count;
 }
 
-bool debounce(int buttonPin, bool &last){
-  boolean current = digitalRead(buttonPin);
-  if(last != current){
-    delay(debounceDelay);
-    current = digitalRead(buttonPin);
-  }
 
-  if (last == false && current == true){
-    last = current;
-    return true;
+void nextButtonISR() {
+  if (millis() - nextLastPressTime > debounceDelay) {
+    if(nextWasHeld){
+      nextWasHeld = false;
+    }
+    else{
+      nextPressed = true;
+      nextLastPressTime = millis(); 
+    }
   }
-  last = current;
-  return false;
+}
+
+void redoButtonISR() {
+  if (millis() - redoLastPressTime > debounceDelay) {
+    redoPressed = true;
+    redoLastPressTime = millis();
+  }
+}
+
+void checkNextHold(){
+  // Check if the next button has been held for more than 3 seconds
+  bool pinVal = digitalRead(nextPin);
+  if (pinVal==HIGH && (millis() - nextButtonPressStartTime) > longPressThreshold && nextWasHeld==false){
+    nextButtonHeld = true;
+    nextWasHeld = true;
+    delay(50);
+  }
+  else if (pinVal == LOW){
+    nextButtonPressStartTime = millis();
+  }
 }
