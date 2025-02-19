@@ -3,7 +3,7 @@ const int redoPin = 12;
 const int nextPin = 11;
 boolean ledOn = false;
 
-const int debounceDelay = 85;  // Debounce delay in milliseconds
+const int debounceDelay = 95;  // Debounce delay in milliseconds
 const unsigned long longPressThreshold = 3000;  // 3 seconds threshold
 
 bool nextPressed = false;
@@ -85,6 +85,7 @@ void checkNextHold(){
   if (pinVal==HIGH && (millis() - nextButtonPressStartTime) > longPressThreshold && nextWasHeld==false){
     nextButtonHeld = true;
     nextWasHeld = true;
+    delay(50);
   }
   else if (pinVal == LOW){
     nextButtonPressStartTime = millis();
