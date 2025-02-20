@@ -1,12 +1,13 @@
 const int dataPin = A1; //shiftRegister pin 14 (red wire)
 const int enablePin = A2; //shiftRegister pin 13 (orange wire)
-const int clockPin = A4; //shiftRegister pin 12 (blue wire)
 const int latchPin = A3; //shiftRegister pin 11(purple wire)
+const int clockPin = A4; //shiftRegister pin 12 (blue wire)
 
-byte prevState = 0x00;
+uint16_t prevState = 0b0000000000000000;
+
 
 // Number of LEDs (RGB LEDs)
-int numLEDs = 3;  // Example: 3 RGB LEDs controlled by 3 shift registers
+int numLEDs = 4;  // Example: 3 RGB LEDs controlled by 3 shift registers
 
 void setup() {
   // Set pins as OUTPUT
@@ -25,9 +26,17 @@ void loop() {
   delay(1000);
   setColor("green", 1);
   delay(1000);
-  setColor("blue", 2);
+  setColor("red", 2);
   delay(1000);
-  allLEDsOff();
+  setColor("blue", 3);
+  delay(1000);
+  setColor("off", 0);
+  delay(1000);
+  setColor("off", 1);
+  delay(1000);
+  setColor("off", 2);
+  delay(1000);
+  setColor("off", 3);
   delay(1000);
 }
 
@@ -71,8 +80,8 @@ void setColor(String color, int ledIndex) {
 }
 
 // Function to send the color to a specific LED
-void setLEDColor(int ledIndex, byte red, byte green, byte blue, byte &prevState) {
-  byte newState;
+void setLEDColor(int ledIndex, byte red, byte green, byte blue, uint16_t &prevState) {
+  uint16_t newState;
   if(red == 1){
     newState = bitSet(prevState, ledIndex*3);
   }
@@ -98,6 +107,7 @@ void setLEDColor(int ledIndex, byte red, byte green, byte blue, byte &prevState)
   digitalWrite(enablePin, LOW);
 
   digitalWrite(latchPin, LOW);
+  shiftOut(dataPin, clockPin, MSBFIRST, newState >> 8);
   shiftOut(dataPin, clockPin, MSBFIRST, newState);
   digitalWrite(latchPin, HIGH);
 
