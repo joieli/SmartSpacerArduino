@@ -143,7 +143,7 @@ bool hasInhaler = false;
 bool hasConfig = false;
 bool spacerAttached = false;
 
-int PEFRTrial = -1;
+int PEFRTrial = 0;
 int PEFRAttempt = 1;
 bool inPEFRMode = false;
 
