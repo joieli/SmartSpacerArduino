@@ -9,12 +9,13 @@ const unsigned long longPressThreshold = 3000;  // 3 seconds threshold
 bool nextPressed = false;
 bool redoPressed = false;
 bool nextButtonHeld = false;
+bool nextWasHeld = false;
 
 unsigned long nextLastPressTime = 0;
 unsigned long redoLastPressTime = 0;
 unsigned long nextButtonPressStartTime = 0;
 
-bool nextWasHeld = false;
+
 
 void setup() {
   pinMode(led, OUTPUT);
