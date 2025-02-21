@@ -181,6 +181,9 @@ const int blinkInterval = 800;
 bool blinkLEDOn = false;
 unsigned int numLEDs = 4; 
 
+//misc
+unsigned long lastInhaleAboveThresh = 0;
+const unsigned int medicationTimeout = 10000; //10 second timeout
 
 //SETUP BLOCK==================================================================================================================
 void setup(void) {
@@ -355,7 +358,7 @@ void loop(void) {
         //inhaler has been attached
         hasInhaler = true;
         curInhaler.startTime = getTime();
-        //ToDo: light up LEDs based on which inhaler has been attached
+        lastInhaleAboveThresh = millis();
 
         //making file name
         int fileCount= countFiles();
@@ -444,8 +447,11 @@ void loop(void) {
     if(hasInhaler == true)
     {
       int flowRate = random(100,600); //ToDo: insert code to get the flow rate
+      flowRate = 10; //To test the timeout
+      unsigned long currentMillis = millis();
       if(flowRate > 200)//ToDo: adjust the threshold
       {
+        lastInhaleAboveThresh = currentMillis;
         Details medicationDetail;
         medicationDetail.timestamp = getTime();
         medicationDetail.flowRate = flowRate;
@@ -464,12 +470,24 @@ void loop(void) {
         Serial.println();
         appendJson(eventFileName, details);
         detailsDoc.clear();
+        Serial.println();
+      }
+      else if(currentMillis - lastInhaleAboveThresh >= medicationTimeout){
+        //below threshold and greater than timeout --> start alerting
+        Serial.println(F("MEDICATION TIMEOUT REACHED=================="));
+        Serial.println();
+        
+        setColor("red", 0);
+        setColor("red", 1);
+        setColor("red", 2);
+        setColor("red", 3);
       }
       else{
-        Serial.println(F("INHALATION BELOW THRESHOLD"));
+        Serial.println(F("INHALATION BELOW THRESHOLD=================="));
+        Serial.println();
         allLEDsOff();
       }
-      Serial.println();
+      
     }
     else if (inPEFRMode == true)
     {
@@ -504,7 +522,7 @@ void loop(void) {
         exhalationDetail.trial = PEFRTrial + 1; //PEFRTrial is 0-indexed, add 1
         exhalationDetail.attempt = PEFRAttempt;
         exhalationDetail.timestamp = getTime();
-        exhalationDetail.percentage = flowRate*100/config.baseline; //ToDo: find percentage based on flowrate and baseline
+        exhalationDetail.percentage = flowRate*100/config.baseline;
 
         //If we reached a new peak
         if (flowRate > PEFRTest.vals[PEFRTrial]){
