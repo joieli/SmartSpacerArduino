@@ -466,6 +466,7 @@ void loop(void) {
         detailsDoc.clear();
       }
       else{
+        Serial.println(F("INHALATION BELOW THRESHOLD"));
         allLEDsOff();
       }
       Serial.println();
@@ -786,7 +787,7 @@ void checkNextHold(){
 
 // Lights--------------------------------------------------------------
 void setColor(String color, int ledIndex) {
-  byte red = 0, green = 0, blue = 0;
+  bool red = 0, green = 0, blue = 0;
 
   if (color == "red") {
     red = 1;
@@ -813,7 +814,7 @@ void setColor(String color, int ledIndex) {
   setLEDColor(ledIndex, red, green, blue, prevLightState);
 }
 
-void setLEDColor(int ledIndex, byte red, byte green, byte blue, uint16_t &prevLightState) {
+void setLEDColor(int ledIndex, bool red, bool green, bool blue, uint16_t &prevLightState) {
   uint16_t newLightState;
   if(red == 1){
     newLightState = bitSet(prevLightState, ledIndex*3);
