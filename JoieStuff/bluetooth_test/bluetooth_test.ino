@@ -23,7 +23,7 @@ String fileName;
 String configFileName = "CONFIG.TXT";
 String jsonDataBT = "";
 
-bool endOfFile = false;
+bool hasFilesToSend = true;
 bool hasConfig = false;
 
 class Config{
@@ -117,29 +117,26 @@ void setup() {
   printDirectory(root, 0);
   root.close();
 
-  Serial.println();
-  Serial.println("Which file do you want to read?");
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  if(Serial.available()){
-    fileName = Serial.readStringUntil('\n');
-
-    if(ble.isConnected()){
-      Serial.println(F("BLUETOOTH CONNECTED"));
-      if(endOfFile==false){
-        Serial.println(F("SENDING FOLLOWING CONTENTS OF FOLLOWING FILES: "));
-        sendContentsBT(fileName);
-        endOfFile = true;
-      }
-    }  
-  }
 
   if(ble.isConnected()){
-    Serial.println(F("BLUETOOTH CONNECTED"));
+    delay(3000); //ToDo: delay just so i can open up thing, remove later
+    if(hasFilesToSend==true){
+      Serial.println(F("BLUETOOTH CONNECTED"));
+      sendAndDeleteAllFilesBT();
+    }
+    else{
+      Serial.println(F("BLUETOOTH CONNECTED - no files to send"));
+    }
     receiveContentsBT();
+    sendBatteryBT();
   }
+  else{
+    Serial.println("waiting for bluetooth connection...");
+  }  
   delay(500);
 
 }
@@ -177,10 +174,12 @@ void printDirectory(File dir, int numTabs) {
   }
 }
 
-void sendContentsBT(String fileName)
+void sendContentsAndRemoveBT(String fileName)
 {
   String buffer = "";
-  
+  Serial.print(F("  Sending: "));
+  Serial.print(fileName);
+
   File file = SD.open(fileName);
   int totalBytes = file.size();
   if (file) {
@@ -189,25 +188,58 @@ void sendContentsBT(String fileName)
     ble.println(F("***"));
     while (file.available()) {
       for (int lastPos = 0; lastPos <= totalBytes; lastPos++){
-        char character = (char)file.read();
-        buffer += character;
-        if(character==10){ //ASCII code for new line
-          ble.print(buffer);
-          buffer = "";
+        if(ble.isConnected()){
+          char character = (char)file.read();
+          receiveContentsBT();
+          buffer += character;
+          if(character==10){ //ASCII code for new line
+            ble.print(buffer);
+            buffer = "";
+          }          
+        }
+        else{
+          Serial.println();
+          Serial.println(F("ERROR BLUETOOTH DISCONNECTED - CANCELING FILE SEND"));
+          file.close();
+          return;
         }
       }
     }
-    ble.print(F("***End of File: "));
-    ble.print(fileName);
-    ble.println(F("***"));
-    file.close();
-    Serial.print(F("  "));
-    Serial.println(fileName);
+
+    if(ble.isConnected()){
+      ble.print(F("***End of File: "));
+      ble.print(fileName);
+      ble.println(F("***"));
+      file.close();
+
+      SD.remove(fileName); //remove file after sending
+      Serial.println(F(" (deleted)"));
+    }
   }
   else{
-    Serial.print(F("    error opening "));
+    Serial.print(F("    Error opening:  "));
     Serial.println(fileName);
   }
+}
+
+void sendAndDeleteAllFilesBT(){
+  Serial.println(F("SENDING CONTENTS AND DELETING FOLLOWING FILES: "));
+  File dir = SD.open("/");
+
+  while (ble.isConnected()) {
+    File entry =  dir.openNextFile();
+    if (! entry) {
+      hasFilesToSend = false;
+      break; // no more files
+    }
+
+    String fileName = entry.name();
+    if (fileName != configFileName && (fileName.startsWith("M00") || fileName.startsWith("E00"))){
+      sendContentsAndRemoveBT(fileName);
+    }
+    entry.close();
+  }
+  dir.close();
 }
 
 void receiveContentsBT(){
@@ -215,6 +247,7 @@ void receiveContentsBT(){
     char character = (char)ble.read();
     jsonDataBT += character;
     if(character == 125) {
+      Serial.println();
       Serial.println(F("Recieved following JSON from BT:"));
       Serial.println(jsonDataBT);
       Serial.println();
@@ -293,5 +326,34 @@ void printContents(String fileName){
     Serial.print(F("    error opening: "));
     Serial.println(fileName);
   }
+}
+
+int countFiles() {
+  int count = 0;
+
+  File root = SD.open("/");
+  if (!root) {
+    Serial.println("Failed to open root directory.");
+    return 0;
+  }
+
+  while (true) {
+    File entry = root.openNextFile();
+    if (!entry) {
+      break;
+    }
+
+    // Only count files, ignore directories
+    if (!entry.isDirectory()) {
+      count++;
+    }
+    entry.close();
+  }
+  root.close();
+  return count;
+}
+
+void sendBatteryBT(){
+
 }
 
