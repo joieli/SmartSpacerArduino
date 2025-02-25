@@ -215,6 +215,12 @@ void sendContentsAndRemoveBT(String fileName)
       SD.remove(fileName); //remove file after sending
       Serial.println(F(" (deleted)"));
     }
+    else{
+      Serial.println();
+      Serial.println(F("ERROR BLUETOOTH DISCONNECTED - CANCELING FILE SEND"));
+      file.close();
+      return;
+    }
   }
   else{
     Serial.print(F("    Error opening:  "));
