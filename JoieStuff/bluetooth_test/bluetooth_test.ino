@@ -1,9 +1,9 @@
-//Adafruit Bluefruit LE nRF51 https://github.com/adafruit/Adafruit_BluefruitLE_nRF51
 #include <SD.h>
-#include <Arduino.h>
 #include <SPI.h>
 #include <ArduinoJson.h> //ArduinoJson by Benoit Blanchon, documentation: https://arduinojson.org/v7/
-#include "Adafruit_BLE.h"
+
+#include "Adafruit_BLE.h" //Adafruit Bluefruit LE nRF51 https://github.com/adafruit/Adafruit_BluefruitLE_nRF51
+#include <Arduino.h>
 #include "Adafruit_BluefruitLE_SPI.h"
 #include "Adafruit_BluefruitLE_UART.h"
 
@@ -17,13 +17,18 @@
 //hardware SPI setup (using SCK/MOSI/MISO)
 Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_RST);
 
+bool hasFilesToSend = true;
+const int batteryPin = A7;
+int prevBattery = 0;
+
+
+//Exiting stuff
 const int chipSelect = 10;
 File root;
 String fileName;
 String configFileName = "CONFIG.TXT";
 String jsonDataBT = "";
 
-bool hasFilesToSend = true;
 bool hasConfig = false;
 
 class Config{
@@ -48,6 +53,7 @@ class Config{
 };
 Config config; //initalizing a config object
 
+//SETUP--------------------------------------------------------
 void setup() {
   Serial.begin(115200);
   while (!Serial);
@@ -360,6 +366,19 @@ int countFiles() {
 }
 
 void sendBatteryBT(){
+  float batteryVoltage = analogRead(batteryPin)*2*3.3/1024; //voltage divider divided by 2, multiple by 3.3 for ref voltage
+  int batteryPercentage = map(batteryVoltage*1000, 3200, 4200, 0, 100); //map needs integer arguements
+  
+  if(prevBattery != batteryPercentage){
+    Serial.print(F("Sending Battery: "));
+    Serial.println(batteryPercentage);
+
+    ble.print(F("***batteryPercentage: "));
+    ble.print(batteryPercentage);
+    ble.println(F("***"));
+
+    prevBattery = batteryPercentage;
+  }
 
 }
 
