@@ -116,6 +116,10 @@ void setup() {
 
     hasConfig = true;
   }
+  else{
+    Serial.println(F("CONFIG.TXT does not exist"));
+    config.spacerUDI = "SPACE166";
+  }
 
   Serial.println("LIST OF DOCUMENTS=========");
   root = SD.open("/");
@@ -129,7 +133,7 @@ void loop() {
   // put your main code here, to run repeatedly:
 
   if(ble.isConnected()){
-    delay(3000); //ToDo: delay just so i can open up thing, remove later
+    //delay(3000); //ToDo: delay just so i can open up thing, remove later
     if(hasFilesToSend==true){
       Serial.println(F("BLUETOOTH CONNECTED"));
       sendAndDeleteAllFilesBT();
@@ -142,6 +146,7 @@ void loop() {
   }
   else{
     Serial.println("waiting for bluetooth connection...");
+    delay(3000);
   }  
   delay(500);
 
@@ -258,10 +263,10 @@ void receiveContentsBT(){
   while(ble.available()){
     char character = (char)ble.read();
     jsonDataBT += character;
-    if(character == 125) {
+    if(character == 125) { //125 = }
+      //case where we receive a json
       Serial.println();
       Serial.println(F("Recieved following JSON from BT:"));
-      Serial.println(jsonDataBT);
       Serial.println();
       // Create a JSON document to parse the data
       StaticJsonDocument<200> doc;
@@ -320,6 +325,7 @@ void rewriteConfigFile(String filename, Config config){
 
   // Close the file
   file.close();
+  hasConfig = true;
 }
 
 void printContents(String fileName){
