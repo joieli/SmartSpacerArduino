@@ -33,8 +33,8 @@ const int redoPin = 12;
 
 const int dataPin = A1; //shiftRegister pin 14 (red wire)
 const int enablePin = A2; //shiftRegister pin 13 (orange wire)
-const int latchPin = A3; //shiftRegister pin 11(purple wire)
-const int clockPin = A4; //shiftRegister pin 12 (blue wire)
+const int latchPin = A3; //shiftRegister pin 11(blue wire)
+const int clockPin = A4; //shiftRegister pin 12 (purple wire)
 
 //classes and structs
 class Inhaler {
@@ -447,7 +447,7 @@ void loop(void) {
     if(hasInhaler == true)
     {
       int flowRate = random(100,600); //ToDo: insert code to get the flow rate
-      flowRate = 10; //To test the timeout
+      //flowRate = 10; //RoDo: To test the timeout
       unsigned long currentMillis = millis();
       if(flowRate > 200)//ToDo: adjust the threshold
       {
