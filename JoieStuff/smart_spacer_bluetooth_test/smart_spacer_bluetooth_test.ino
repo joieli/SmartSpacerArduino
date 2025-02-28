@@ -331,7 +331,33 @@ void setup(void) {
 void loop(void) {
   spacerAttached = digitalRead(spacerPin);
   spacerAttached = true; //ToDo: Get rid of this line in the actual code, this is toggeled tru just to make tessting easier
-  if(spacerAttached == true && hasConfig == true)
+  if(ble.isConnected()){
+    if(hasFilesToSend==true){
+      Serial.println(F("BLUETOOTH CONNECTED"));
+      sendAndDeleteAllFilesBT();
+    }
+    else{
+      Serial.println(F("BLUETOOTH CONNECTED - no files to send"));
+      receiveContentsBT();
+      loop_inner();
+    
+    }
+    sendBatteryBT();
+  }
+  else{
+    Serial.println("waiting for bluetooth connection...");
+    loop_inner();
+  }  
+  
+  if(spacerAttached == false){
+    Serial.println(F("ATTACH SPACER"));
+    delay(5000);
+  }
+}
+
+
+void loop_inner() {
+  if(hasConfig == true)
   {
     //toggle operation mode bools on and off
     bool hasTag = nfc.tagPresent(10);
@@ -403,6 +429,7 @@ void loop(void) {
       Serial.println("INHALER REMOVED---------------------"); 
       Serial.print("Time: ");
       Serial.println(getTime());
+      hasFilesToSend = true;
 
       //reset
       eventFileName = "UNKNOWN.TXT";
@@ -451,6 +478,7 @@ void loop(void) {
         Serial.print(F("Saving the following data to: "));
         Serial.println(eventFileName);
         logExhalationHeader(eventFileName, PEFRTest);
+        hasFilesToSend = true;
         Serial.println();
 
         //Reset
@@ -579,8 +607,7 @@ void loop(void) {
   else
   {
     //ToDo: blutooth searching at a slower rate
-    Serial.println(F("CONNECT SPACER AND/OR CREATE CONFIG.TXT"));
-    delay(5000); //adjust delay if necessary
+    Serial.println(F("CREATE CONFIG.TXT"));
   }
 }
 
@@ -1030,6 +1057,7 @@ void sendContentsAndRemoveBT(String fileName)
         if(ble.isConnected()){
           char character = (char)file.read();
           receiveContentsBT();
+          //loop_inner(); //so we can do functionality even while sending data
           buffer += character;
           if(character==10){ //ASCII code for new line
             ble.print(buffer);
