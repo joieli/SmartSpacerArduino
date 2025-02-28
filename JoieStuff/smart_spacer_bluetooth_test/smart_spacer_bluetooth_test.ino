@@ -345,7 +345,6 @@ void loop(void) {
     sendBatteryBT();
   }
   else{
-    Serial.println("waiting for bluetooth connection...");
     loop_inner();
   }  
   
@@ -536,7 +535,7 @@ void loop_inner() {
         Serial.println();
         allLEDsOff();
       }
-      
+      delay(100); // ToDo: adjust the delay if necessary
     }
     else if (inPEFRMode == true)
     {
@@ -596,18 +595,19 @@ void loop_inner() {
         appendJson(eventFileName, details);
         detailsDoc.clear();
       }
+      delay(100); //ToDo: adjust the delay if necessary
     }
-    else 
+    else if(ble.isConnected() == false) 
     {
-      // Todo: If you are not in any of the modes, then search for a bluetooth connection
+      //Only print if you aren't in the middle of sending files, it's ugly you don't
       Serial.println(F("Connect Inhaler or Activate PEFR"));
+      delay(100);
     }
-    delay(100); //adjust the delay if necessary
   }
-  else
+  else if(ble.isConnected() == false)
   {
-    //ToDo: blutooth searching at a slower rate
     Serial.println(F("CREATE CONFIG.TXT"));
+    delay(100);
   }
 }
 
@@ -830,6 +830,35 @@ int countFiles() {
   file.close();
   return count;
 }
+
+bool hasDataFiles(){
+  // Open the root directory
+  File root = SD.open("/");
+  // Check if the directory opened correctly
+  if (!root) {
+    Serial.println("Failed to open root directory.");
+    return 0;
+  }
+
+  while (true) {
+    File entry = root.openNextFile();
+    if (!entry) {
+      break;
+    }
+
+    // Only count files, ignore directories
+    if (!entry.isDirectory()) {
+      String fileName = entry.name();
+      if(fileName.startsWith("M00") || fileName.startsWith("E00")){
+        return true;
+      }
+    }
+    entry.close();
+  }
+  root.close();
+  return false;
+}
+
 
 //Buttons -------------------------------------------------------------
 void nextButtonISR() {
@@ -1057,10 +1086,10 @@ void sendContentsAndRemoveBT(String fileName)
         if(ble.isConnected()){
           char character = (char)file.read();
           receiveContentsBT();
-          //loop_inner(); //so we can do functionality even while sending data
           buffer += character;
           if(character==10){ //ASCII code for new line
             ble.print(buffer);
+            loop_inner(); //so we can do functionality even while sending data
             buffer = "";
           }          
         }
