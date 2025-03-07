@@ -1,4 +1,4 @@
-#include <SD.h>
+#include <SD.h> //SD by Arduino, SparkFun, documentation: https://docs.arduino.cc/libraries/sd/
 #include <SPI.h>
 #include <ArduinoJson.h> //ArduinoJson by Benoit Blanchon, documentation: https://arduinojson.org/v7/
 
@@ -56,7 +56,7 @@ Config config; //initalizing a config object
 //SETUP--------------------------------------------------------
 void setup() {
   Serial.begin(115200);
-  while (!Serial);
+  //while (!Serial);
 
   // Initialise the  bluetooth module
   Serial.print(F("Initialising the Bluetooth:"));
