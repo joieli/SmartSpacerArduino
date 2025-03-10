@@ -89,7 +89,7 @@ void error(const __FlashStringHelper*err) {
 /**************************************************************************/
 void setup(void)
 {
-  while (!Serial);  // required for Flora & Micro
+  //while (!Serial);  // required for Flora & Micro
   delay(500);
 
   Serial.begin(115200);
@@ -129,6 +129,15 @@ void setup(void)
 /**************************************************************************/
 void loop(void)
 {
+  ble.println("AT+BLEUARTTX=Smart Spacer -> Testing \\n");
+  ble.waitForOK();
+  delay(1000);
+}
+
+
+/*
+void loop(void)
+{
   // Display command prompt
   Serial.print(F("AT > "));
 
@@ -142,6 +151,8 @@ void loop(void)
   // Check response status
   ble.waitForOK();
 }
+*/
+
 
 /**************************************************************************/
 /*!
