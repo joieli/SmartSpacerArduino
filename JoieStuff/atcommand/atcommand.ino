@@ -13,8 +13,8 @@
 *********************************************************************/
 
 #include <Arduino.h>
-#include <SPI.h>
-#include "Adafruit_BLE.h"
+#include <SPI.h> 
+#include "Adafruit_BLE.h" //Adafruit Bluefruit LE nRF51 https://github.com/adafruit/Adafruit_BluefruitLE_nRF51
 #include "Adafruit_BluefruitLE_SPI.h"
 #include "Adafruit_BluefruitLE_UART.h"
 
