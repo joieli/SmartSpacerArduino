@@ -747,7 +747,7 @@ void logMedicationHeader(String filename, Inhaler curInhaler){
   header[F("jsonContent")] = F("header");
   header[F("userID")] = config.userID;
   header[F("spacerUDI")] = config.spacerUDI;
-  header[F("dataType")] = F("medication");
+  header[F("mode")] = F("medication");
   header[F("startTime")] = curInhaler.startTime;
 
   JsonObject medicationType = header.createNestedObject(F("medicationType"));
@@ -769,7 +769,7 @@ void logExhalationHeader(String filename, PeakFlowRateTest PEFRTest){
   header[F("jsonContent")] = F("header");
   header[F("userID")] = config.userID;
   header[F("spacerUDI")] = config.spacerUDI;
-  header[F("dataType")] = F("exhalation");
+  header[F("mode")] = F("exhalation");
   header[F("startTime")] = PEFRTest.startTime;
 
   JsonArray PEFRs = header.createNestedArray(F("PEFRs"));
