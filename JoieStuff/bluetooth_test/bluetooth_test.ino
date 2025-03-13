@@ -271,9 +271,12 @@ void sendContentsBT(String fileName)
   File file = SD.open(fileName);
   int totalBytes = file.size();
   if (file) {
-    ble.print(F("***Beginning of File: "));
-    ble.print(fileName);
-    ble.println(F("***"));
+    if(fileName.startsWith("M00")){
+      ble.println("#INHALATION");
+    }
+    else if(fileName.startsWith("E00")){
+      ble.println("#EXHALATION");
+    }
     while (file.available()) {
       for (int lastPos = 0; lastPos <= totalBytes; lastPos++){
         if(ble.isConnected()){
@@ -295,9 +298,7 @@ void sendContentsBT(String fileName)
     }
 
     if(ble.isConnected()){
-      ble.print(F("***End of File: "));
-      ble.print(fileName);
-      ble.println(F("***"));
+      ble.println("@"); //flag for end file transfer
       file.close();
 
       Serial.println(F("(done)"));
@@ -343,7 +344,7 @@ void receiveContentsBT(){
       //case where we receive a json
       Serial.println();
       Serial.println(F("Recieved following JSON from BT:"));
-      Serial.println();
+      Serial.println(jsonDataBT);
       // Create a JSON document to parse the data
       StaticJsonDocument<200> doc;
       
@@ -455,9 +456,10 @@ void sendBatteryBT(){
     Serial.print(F("Sending Battery: "));
     Serial.println(batteryPercentage);
 
-    ble.print(F("***batteryPercentage: "));
-    ble.print(batteryPercentage);
-    ble.println(F("***"));
+    ble.println(F("#BATTERY{"));
+    ble.print("\t\"batteryPercentage\": ");
+    ble.println(batteryPercentage);
+    ble.println(F("}@"));
 
     prevBattery = batteryPercentage;
   }
