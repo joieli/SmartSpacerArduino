@@ -503,7 +503,7 @@ void loop_inner() {
     if(hasInhaler == true)
     {
       unsigned long currentMillis = millis();
-      //int flowRate = random(100,600); //ToDo: insert code to get the flow rate
+      //int flowRate = random(100,600); //
 
       if(currentMillis - lastSample >= sampleTime){
         get_data();
@@ -511,7 +511,7 @@ void loop_inner() {
         Serial.println(vol_flow);
         lastSample = currentMillis;
       }
-      if(vol_flow > 30)//ToDo: adjust the threshold
+      if(vol_flow > 10)
       {
         lastInhaleAboveThresh = currentMillis;
         Details medicationDetail;
@@ -577,14 +577,13 @@ void loop_inner() {
       }
 
       //logging flow rate
-      //int flowRate = (PEFRTrial+1) * 100; //ToDo: flowRate measuringcode
       if(currentMillis - lastSample >= sampleTime){
         get_data();
         Serial.print(F("Measured Flow Rate: "));
         Serial.println(vol_flow);
         lastSample = currentMillis;
       }
-      if(vol_flow > 30) //ToDo: adjust the threshold
+      if(vol_flow > 40)
       {
         Details exhalationDetail;
         exhalationDetail.flowRate = vol_flow;
@@ -600,6 +599,7 @@ void loop_inner() {
           PEFRTest.timestamps[PEFRTrial] = exhalationDetail.timestamp;
         }
 
+        /* //Stop logging the exhalation details, decided we don't need to anymore
         JsonDocument detailsDoc;
         JsonObject details = detailsDoc.to<JsonObject>();
         details[F("jsonContent")] = F("details");
@@ -615,6 +615,7 @@ void loop_inner() {
         Serial.println();
         appendJson(eventFileName, details);
         detailsDoc.clear();
+        */
       }
       delay(100); //ToDo: adjust the delay if necessary
     }
@@ -802,8 +803,6 @@ void logExhalationHeader(String filename, PeakFlowRateTest PEFRTest){
     entry[F("percentage")] = String(PEFRTest.percents[index]) + "%";
     entry[F("timestamp")] = PEFRTest.timestamps[index];
   }
-
-  //ToDo: Potentially do some calculations to determine avePEFR on the arduino
 
   serializeJsonPretty(header,Serial);
   Serial.println();
@@ -1020,8 +1019,7 @@ void redoLights() {
 }
 
 String lightUpMedLEDs(int flowRate){
-  //ToDo: Adjust thresholds
-  if(flowRate >= 200 && flowRate < 300){
+  if(flowRate >= 15 && flowRate < 20){
     //first green
     setColor("green", 0);
     setColor("off", 1);
@@ -1030,7 +1028,7 @@ String lightUpMedLEDs(int flowRate){
 
     return "green";
   }
-  else if(flowRate >= 300 && flowRate < 400){
+  else if(flowRate >= 20 && flowRate < 25){
     //second green
     setColor("green", 0);
     setColor("green", 1);
@@ -1039,7 +1037,7 @@ String lightUpMedLEDs(int flowRate){
 
     return "green";
   }
-  else if(flowRate >= 400 && flowRate < 500){
+  else if(flowRate >= 25 && flowRate < 30){
     //yellow
     setColor("green", 0);
     setColor("green", 1);
@@ -1048,7 +1046,7 @@ String lightUpMedLEDs(int flowRate){
 
     return "yellow";
   }
-  else if(flowRate >= 500){
+  else if(flowRate >= 30){
     //red
     setColor("green", 0);
     setColor("green", 1);
@@ -1099,9 +1097,12 @@ void sendContentsAndRemoveBT(String fileName)
   File file = SD.open(fileName);
   int totalBytes = file.size();
   if (file) {
-    ble.print(F("***Beginning of File: "));
-    ble.print(fileName);
-    ble.println(F("***"));
+    if(fileName.startsWith("M00")){
+      ble.println("#INHALATION");
+    }
+    else if(fileName.startsWith("E00")){
+      ble.println("#EXHALATION");
+    }
     while (file.available()) {
       for (int lastPos = 0; lastPos <= totalBytes; lastPos++){
         if(ble.isConnected()){
@@ -1124,9 +1125,7 @@ void sendContentsAndRemoveBT(String fileName)
     }
 
     if(ble.isConnected()){
-      ble.print(F("***End of File: "));
-      ble.print(fileName);
-      ble.println(F("***"));
+      ble.println("@"); //flag for end file transfer
       file.close();
 
       SD.remove(fileName); //remove file after sending
@@ -1186,9 +1185,10 @@ void sendBatteryBT(){
     Serial.print(F("Sending Battery: "));
     Serial.println(batteryPercentage);
 
-    ble.print(F("***batteryPercentage: "));
-    ble.print(batteryPercentage);
-    ble.println(F("***"));
+    ble.println(F("#BATTERY{"));
+    ble.print("\t\"batteryPercentage\": ");
+    ble.println(batteryPercentage);
+    ble.println(F("}@"));
 
     prevBattery = batteryPercentage;
   }
@@ -1216,6 +1216,17 @@ float calculate_volflow(float pres){
   }
   else{
     vol_flow = sqrt((2*pres)/(1.293*((1/pow(0.000182,2))-(1/pow(0.0013795,2)))))*60000;
+    float lps = vol_flow/60;
+    //Kath's formula
+    if(lps < 2.066){
+      vol_flow = 60*(0.0426*lps - 0.0016);
+    }
+    else{
+      vol_flow = 60*(0.4076*lps - 0.7560);
+    }
+    if(vol_flow < 0){
+      vol_flow = 0;
+    }
   }  
   return vol_flow;
 }
