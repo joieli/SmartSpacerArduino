@@ -1178,19 +1178,29 @@ void receiveContentsBT(){
 }
 
 void sendBatteryBT(){
-  float batteryVoltage = analogRead(batteryPin)*2*3.3/1024;
+  float batteryVoltage = analogRead(batteryPin)*2*3.3/1024; //voltage divider divided by 2, multiple by 3.3 for ref voltage
   int batteryPercentage = map(batteryVoltage*1000, 3200, 4200, 0, 100); //map needs integer arguements
   
   if(prevBattery != batteryPercentage){
     Serial.print(F("Sending Battery: "));
-    Serial.println(batteryPercentage);
+    if(batteryPercentage >= 100){
+      Serial.println("Charging");
+      ble.println(F("#BATTERY{"));
+      ble.println(F("\t\"batteryPercentage\": \"Charging\""));
+      ble.println(F("}@"));
 
-    ble.println(F("#BATTERY{"));
-    ble.print("\t\"batteryPercentage\": ");
-    ble.println(batteryPercentage);
-    ble.println(F("}@"));
+      prevBattery = batteryPercentage;
+    }
+    else{
+      Serial.println(batteryPercentage);
+      ble.println(F("#BATTERY{"));
+      ble.print("\t\"batteryPercentage\": \"");
+      ble.print(batteryPercentage);
+      ble.println(F("%\""));
+      ble.println(F("}@"));
 
-    prevBattery = batteryPercentage;
+      prevBattery = batteryPercentage;
+    }
   }
 }
 
