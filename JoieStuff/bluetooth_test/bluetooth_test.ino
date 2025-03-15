@@ -133,18 +133,21 @@ void loop() {
   // put your main code here, to run repeatedly:
 
   if(ble.isConnected()){
-    //delay(3000); //ToDo: delay just so i can open up thing, remove later
+    //delay(5000); //ToDo: delay just so i can open up thing, remove later
+    receiveContentsBT();
+    sendBatteryBT();
     if(hasFilesToSend==true){
       Serial.println(F("BLUETOOTH CONNECTED"));
-      sendSingleFile();
+      sendSingleFile("E0000014.TXT"); //short exhalation file
+      //sendSingleFile("E0000014.TXT"); //short exhalation file
+      //sendSingleFile("M0000018.TXT"); //short medication file
+      //sendSingleFile("M0000019.TXT"); //long medication file
       hasFilesToSend = false;
       //sendAndDeleteAllFilesBT();
     }
     else{
       Serial.println(F("BLUETOOTH CONNECTED - no files to send"));
     }
-    receiveContentsBT();
-    sendBatteryBT();
   }
   else{
     Serial.println("waiting for bluetooth connection...");
@@ -227,6 +230,7 @@ void sendContentsAndRemoveBT(String fileName)
 
       SD.remove(fileName); //remove file after sending
       Serial.println(F(" (deleted)"));
+      Serial.println(" (done)");
     }
     else{
       Serial.println();
@@ -241,7 +245,7 @@ void sendContentsAndRemoveBT(String fileName)
   }
 }
 
-void sendSingleFile(){
+void sendSingleFile(String targetFileName){
   Serial.println(F("SENDING CONTENTS AND DELETING FOLLOWING FILES: "));
   File dir = SD.open("/");
 
@@ -253,7 +257,7 @@ void sendSingleFile(){
     }
 
     String fileName = entry.name();
-    if (fileName != configFileName && (fileName.startsWith("M00") || fileName.startsWith("E00"))){
+    if (fileName == targetFileName){
       sendContentsBT(fileName);
       break;
     }
@@ -272,7 +276,7 @@ void sendContentsBT(String fileName)
   int totalBytes = file.size();
   if (file) {
     if(fileName.startsWith("M00")){
-      ble.println("#INHALATION");
+      ble.println("#INHALATION["); //inhalation data sends as a list
     }
     else if(fileName.startsWith("E00")){
       ble.println("#EXHALATION");
@@ -298,6 +302,9 @@ void sendContentsBT(String fileName)
     }
 
     if(ble.isConnected()){
+      if(fileName.startsWith("M00")){
+        ble.print("]"); //close off the list for inhalation data
+      }
       ble.println("@"); //flag for end file transfer
       file.close();
 
@@ -454,15 +461,24 @@ void sendBatteryBT(){
   
   if(prevBattery != batteryPercentage){
     Serial.print(F("Sending Battery: "));
-    Serial.println(batteryPercentage);
+    if(batteryPercentage > 100){
+      Serial.println("Charging");
+      ble.println(F("#BATTERY{"));
+      ble.println(F("\t\"batteryPercentage\": \"Charging\""));
+      ble.println(F("}@"));
 
-    ble.println(F("#BATTERY{"));
-    ble.print("\t\"batteryPercentage\": ");
-    ble.println(batteryPercentage);
-    ble.println(F("}@"));
+      prevBattery = batteryPercentage;
+    }
+    else{
+      Serial.println(batteryPercentage);
+      ble.println(F("#BATTERY{"));
+      ble.print("\t\"batteryPercentage\": \"");
+      ble.print(batteryPercentage);
+      ble.println(F("%\""));
+      ble.println(F("}@"));
 
-    prevBattery = batteryPercentage;
+      prevBattery = batteryPercentage;
+    }
   }
-
 }
 
