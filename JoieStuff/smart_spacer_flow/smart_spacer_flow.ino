@@ -335,22 +335,21 @@ void setup(void) {
 
 }
 
-//LOOP BLOCK====================================================================================================
+//LOOP BLOCK (bluetooth)====================================================================================================
 void loop(void) {
   spacerAttached = digitalRead(spacerPin);
   spacerAttached = true; //ToDo: Get rid of this line in the actual code, this is toggeled tru just to make tessting easier
   if(ble.isConnected()){
+    sendBatteryBT(); //sned battery if changed
     if(hasFilesToSend==true){
       Serial.println(F("BLUETOOTH CONNECTED"));
-      sendAndDeleteAllFilesBT();
+      sendAndDeleteAllFilesBT(); //allows loop inner and receiing to happen always
     }
     else{
       Serial.println(F("BLUETOOTH CONNECTED - no files to send"));
       receiveContentsBT();
       loop_inner();
-    
-    }
-    sendBatteryBT();
+    }  
   }
   else{
     loop_inner();
@@ -599,7 +598,7 @@ void loop_inner() {
           PEFRTest.timestamps[PEFRTrial] = exhalationDetail.timestamp;
         }
 
-        /* //Stop logging the exhalation details, decided we don't need to anymore
+        /* //Stop logging the exhalation details, decided we don't need to anymore //ToDo: Check meeeeeee!!!
         JsonDocument detailsDoc;
         JsonObject details = detailsDoc.to<JsonObject>();
         details[F("jsonContent")] = F("details");
@@ -758,7 +757,7 @@ void appendJson(String filename, JsonObject json){
     Serial.print(F("   Updated "));
     Serial.println(filename);
   }
-  file.println();
+  file.println(","); //ToDo: CHECK THAT I AM WORKING!!
 
   // Close the file
   file.close();
@@ -1098,7 +1097,7 @@ void sendContentsAndRemoveBT(String fileName)
   int totalBytes = file.size();
   if (file) {
     if(fileName.startsWith("M00")){
-      ble.println("#INHALATION");
+      ble.println("#INHALATION[");
     }
     else if(fileName.startsWith("E00")){
       ble.println("#EXHALATION");
@@ -1108,10 +1107,11 @@ void sendContentsAndRemoveBT(String fileName)
         if(ble.isConnected()){
           char character = (char)file.read();
           receiveContentsBT();
+          loop_inner(); //ToDo CHECK MEEEE -- see if I acn do loop inner here, 
           buffer += character;
           if(character==10){ //ASCII code for new line
             ble.print(buffer);
-            loop_inner(); //so we can do functionality even while sending data
+            //loop_inner(); //so we can do functionality even while sending data
             buffer = "";
           }          
         }
@@ -1125,6 +1125,9 @@ void sendContentsAndRemoveBT(String fileName)
     }
 
     if(ble.isConnected()){
+      if(fileName.startsWith("M00")){
+        ble.print("]");
+      }
       ble.println("@"); //flag for end file transfer
       file.close();
 
