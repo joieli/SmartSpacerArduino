@@ -197,6 +197,8 @@ unsigned int numLEDs = 4;
 
 //misc
 unsigned long lastInhaleAboveThresh = 0;
+unsigned long lastFileSend = 0;
+const unsigned long fileSendDelay = 1000;
 const unsigned int medicationTimeout = 10000; //10 second timeout
 unsigned int prevBattery = 0;
 String jsonDataBT = "";
@@ -340,7 +342,7 @@ void loop(void) {
   spacerAttached = digitalRead(spacerPin);
   spacerAttached = true; //ToDo: Get rid of this line in the actual code, this is toggeled tru just to make tessting easier
   if(ble.isConnected()){
-    sendBatteryBT(); //sned battery if changed
+    sendBatteryBT(); //send battery if changed
     if(hasFilesToSend==true){
       Serial.println(F("BLUETOOTH CONNECTED"));
       sendAndDeleteAllFilesBT(); //allows loop inner and receiing to happen always
@@ -768,7 +770,7 @@ void logMedicationHeader(String filename, Inhaler curInhaler){
   header[F("jsonContent")] = F("header");
   header[F("userID")] = config.userID;
   header[F("spacerUDI")] = config.spacerUDI;
-  header[F("dataType")] = F("medication");
+  header[F("mode")] = F("medication");
   header[F("startTime")] = curInhaler.startTime;
 
   JsonObject medicationType = header.createNestedObject(F("medicationType"));
@@ -790,7 +792,7 @@ void logExhalationHeader(String filename, PeakFlowRateTest PEFRTest){
   header[F("jsonContent")] = F("header");
   header[F("userID")] = config.userID;
   header[F("spacerUDI")] = config.spacerUDI;
-  header[F("dataType")] = F("exhalation");
+  header[F("mode")] = F("exhalation");
   header[F("startTime")] = PEFRTest.startTime;
 
   JsonArray PEFRs = header.createNestedArray(F("PEFRs"));
@@ -1072,17 +1074,24 @@ void sendAndDeleteAllFilesBT(){
   File dir = SD.open("/");
 
   while (ble.isConnected()) {
-    File entry =  dir.openNextFile();
-    if (! entry) {
-      hasFilesToSend = false;
-      break; // no more files
-    }
+    unsigned long currentTime = millis();
+    if(currentTime - lastFileSend > fileSendDelay ){
+      File entry =  dir.openNextFile();
+      if (! entry) {
+        hasFilesToSend = false;
+        break; // no more files
+      }
 
-    String fileName = entry.name();
-    if (fileName != configFileName && (fileName.startsWith("M00") || fileName.startsWith("E00"))){
-      sendContentsAndRemoveBT(fileName);
+      String fileName = entry.name();
+      if (fileName != configFileName && (fileName.startsWith("M00") || fileName.startsWith("E00"))){
+        sendContentsAndRemoveBT(fileName);
+      }
+      entry.close();
+      lastFileSend = millis(); //update the file send time once you have fully sent the file
     }
-    entry.close();
+    else{
+      loop_inner();
+    }
   }
   dir.close();
 }
@@ -1185,29 +1194,34 @@ void sendBatteryBT(){
   int batteryPercentage = map(batteryVoltage*1000, 3200, 4200, 0, 100); //map needs integer arguements
   
   if(prevBattery != batteryPercentage){
-    Serial.print(F("Sending Battery: "));
-    if(batteryPercentage >= 100){
-      Serial.println("Charging");
-      ble.println(F("#BATTERY{"));
-      ble.println(F("\t\"batteryPercentage\": \"Charging\""));
-      ble.println(F("}@"));
+    unsigned long currentTime = millis();
+    if(currentTime - lastFileSend>1000){
+      Serial.print(F("Sending Battery: "));
+      if(batteryPercentage > 100){
+        Serial.println("Charging");
+        ble.println(F("#BATTERY{"));
+        ble.println(F("\t\"batteryPercentage\": \"Charging\""));
+        ble.println(F("}@"));
 
-      prevBattery = batteryPercentage;
-    }
-    else{
-      Serial.println(batteryPercentage);
-      ble.println(F("#BATTERY{"));
-      ble.print("\t\"batteryPercentage\": \"");
-      ble.print(batteryPercentage);
-      ble.println(F("%\""));
-      ble.println(F("}@"));
+        prevBattery = batteryPercentage;
+        lastFileSend = currentTime;
+      }
+      else{
+        Serial.println(batteryPercentage);
+        ble.println(F("#BATTERY{"));
+        ble.print("\t\"batteryPercentage\": \"");
+        ble.print(batteryPercentage);
+        ble.println(F("%\""));
+        ble.println(F("}@"));
 
-      prevBattery = batteryPercentage;
+        prevBattery = batteryPercentage;
+        lastFileSend = currentTime;
+      }
     }
   }
 }
 
-// sensor functions
+//Flow Functions-----------------------------------------------------------------------------
 float calculate_temperature(uint16_t raw) {
   // calculate temp from datasheet formula
   float temp = float(raw) * (200)/(2048 - 1) - 50;
