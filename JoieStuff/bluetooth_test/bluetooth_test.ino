@@ -21,6 +21,8 @@ bool hasFilesToSend = true;
 const int batteryPin = A7;
 int prevBattery = 0;
 
+unsigned long lastFileSend = 0; //NEWWWW
+
 
 //Exiting stuff
 const int chipSelect = 10;
@@ -138,12 +140,15 @@ void loop() {
     sendBatteryBT();
     if(hasFilesToSend==true){
       Serial.println(F("BLUETOOTH CONNECTED"));
+      /*
       sendSingleFile("E0000014.TXT"); //short exhalation file
+      delay(1000);
       //sendSingleFile("E0000014.TXT"); //short exhalation file
       //sendSingleFile("M0000018.TXT"); //short medication file
       //sendSingleFile("M0000019.TXT"); //long medication file
       hasFilesToSend = false;
-      //sendAndDeleteAllFilesBT();
+      */
+      sendAndDeleteAllFilesBT();
     }
     else{
       Serial.println(F("BLUETOOTH CONNECTED - no files to send"));
@@ -199,14 +204,18 @@ void sendContentsAndRemoveBT(String fileName)
   File file = SD.open(fileName);
   int totalBytes = file.size();
   if (file) {
-    ble.print(F("***Beginning of File: "));
-    ble.print(fileName);
-    ble.println(F("***"));
+    if(fileName.startsWith("M00")){
+      ble.println("#INHALATION[");
+    }
+    else if(fileName.startsWith("E00")){
+      ble.println("#EXHALATION");
+    }
     while (file.available()) {
       for (int lastPos = 0; lastPos <= totalBytes; lastPos++){
         if(ble.isConnected()){
           char character = (char)file.read();
           receiveContentsBT();
+          loop_inner();
           buffer += character;
           if(character==10){ //ASCII code for new line
             ble.print(buffer);
@@ -223,14 +232,14 @@ void sendContentsAndRemoveBT(String fileName)
     }
 
     if(ble.isConnected()){
-      ble.print(F("***End of File: "));
-      ble.print(fileName);
-      ble.println(F("***"));
+      if(fileName.startsWith("M00")){
+        ble.print("]");
+      }
+      ble.println("@"); //flag for end file transfer
       file.close();
 
-      SD.remove(fileName); //remove file after sending
-      Serial.println(F(" (deleted)"));
-      Serial.println(" (done)");
+      //SD.remove(fileName); //remove file after sending
+      Serial.println(F(" (done)"));
     }
     else{
       Serial.println();
@@ -286,6 +295,7 @@ void sendContentsBT(String fileName)
         if(ble.isConnected()){
           char character = (char)file.read();
           receiveContentsBT();
+          loop_inner();
           buffer += character;
           if(character==10){ //ASCII code for new line
             ble.print(buffer);
@@ -328,17 +338,25 @@ void sendAndDeleteAllFilesBT(){
   File dir = SD.open("/");
 
   while (ble.isConnected()) {
-    File entry =  dir.openNextFile();
-    if (! entry) {
-      hasFilesToSend = false;
-      break; // no more files
-    }
+    unsigned long currentTime = millis();
+    if(currentTime - lastFileSend > 1000){
+      File entry =  dir.openNextFile();
+      if (! entry) {
+        hasFilesToSend = false;
+        break; // no more files
+      }
 
-    String fileName = entry.name();
-    if (fileName != configFileName && (fileName.startsWith("M00") || fileName.startsWith("E00"))){
-      sendContentsAndRemoveBT(fileName);
+      String fileName = entry.name();
+      if (fileName != configFileName && (fileName.startsWith("M00") || fileName.startsWith("E00"))){
+        sendContentsAndRemoveBT(fileName);
+      }
+      entry.close();
+      lastFileSend = millis(); //update the file send time once you have fully sent the file
     }
-    entry.close();
+    else{
+      Serial.println("WAITTTTTTTT");
+      loop_inner(); //if not time to send the file yet, just send the next file
+    }
   }
   dir.close();
 }
@@ -460,25 +478,35 @@ void sendBatteryBT(){
   int batteryPercentage = map(batteryVoltage*1000, 3200, 4200, 0, 100); //map needs integer arguements
   
   if(prevBattery != batteryPercentage){
-    Serial.print(F("Sending Battery: "));
-    if(batteryPercentage > 100){
-      Serial.println("Charging");
-      ble.println(F("#BATTERY{"));
-      ble.println(F("\t\"batteryPercentage\": \"Charging\""));
-      ble.println(F("}@"));
+    unsigned long currentTime = millis();
+    if(currentTime - lastFileSend>1000){
+      Serial.print(F("Sending Battery: "));
+      if(batteryPercentage > 100){
+        Serial.println("Charging");
+        ble.println(F("#BATTERY{"));
+        ble.println(F("\t\"batteryPercentage\": \"Charging\""));
+        ble.println(F("}@"));
 
-      prevBattery = batteryPercentage;
-    }
-    else{
-      Serial.println(batteryPercentage);
-      ble.println(F("#BATTERY{"));
-      ble.print("\t\"batteryPercentage\": \"");
-      ble.print(batteryPercentage);
-      ble.println(F("%\""));
-      ble.println(F("}@"));
+        prevBattery = batteryPercentage;
+        lastFileSend = currentTime;
+      }
+      else{
+        Serial.println(batteryPercentage);
+        ble.println(F("#BATTERY{"));
+        ble.print("\t\"batteryPercentage\": \"");
+        ble.print(batteryPercentage);
+        ble.println(F("%\""));
+        ble.println(F("}@"));
 
-      prevBattery = batteryPercentage;
+        prevBattery = batteryPercentage;
+        lastFileSend = currentTime;
+      }
     }
   }
+}
+
+void loop_inner(){
+  Serial.println("INNNER================================================");
+  delay(100);
 }
 
