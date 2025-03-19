@@ -22,22 +22,21 @@ void setup() {
 }
 
 void loop() {
-  setColor("yellow", 0);
-  delay(1000);
-  setColor("green", 1);
-  delay(1000);
-  setColor("red", 2);
-  delay(1000);
-  setColor("blue", 3);
-  delay(1000);
+
+  //setColor("red", 0);
+  for(int i = 0; i<4; i++){
+    setColor("red", i);
+    delay(500);
+    setColor("blue", i);
+    delay(500);
+    setColor("green", i);
+    delay(500);
+  }
   setColor("off", 0);
-  delay(1000);
   setColor("off", 1);
-  delay(1000);
   setColor("off", 2);
-  delay(1000);
   setColor("off", 3);
-  delay(1000);
+  delay(500);
 }
 
 // Color mapping function
