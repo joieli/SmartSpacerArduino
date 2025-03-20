@@ -175,7 +175,7 @@ unsigned long nextLastPressTime = 0;
 unsigned long redoLastPressTime = 0;
 unsigned long nextButtonPressStartTime = 0;
 
-const int debounceDelay = 95; 
+const int debounceDelay = 100; 
 const unsigned long longPressThreshold = 3000;
 
 //file vars
@@ -262,7 +262,7 @@ void setup(void) {
   }
 
   ble.echo(false); //diable echo frm bluetooth
-  ble.sendCommandCheckOK("AT+HWModeLED=MODE"); //LED for bluetooth functionality
+  //ble.sendCommandCheckOK("AT+HWModeLED=MODE"); //LED for bluetooth functionality
   ble.verbose(false); //easier for debugging
   Serial.println(F("Bluefruit info:"));
   ble.info();
@@ -355,6 +355,7 @@ void loop(void) {
   }
   else{
     loop_inner();
+    Serial.println(F("Bluetooth not connected"));
   }  
   
   if(spacerAttached == false){
@@ -550,7 +551,7 @@ void loop_inner() {
         Serial.println();
         allLEDsOff();
       }
-      delay(100); // ToDo: adjust the delay if necessary
+      //delay(100); // ToDo: adjust the delay if necessary
     }
     else if (inPEFRMode == true)
     {
@@ -572,6 +573,11 @@ void loop_inner() {
       {
         redoPressed = false; //reset the redoPressed flag
         redoLights();
+        Serial.print(F("TRIAL "));
+        Serial.print(String(PEFRTrial+1));
+        Serial.print(F(", ATTEMPT: "));
+        Serial.print(PEFRAttempt);
+        Serial.println(F("----------------------------------------------------"));
 
         PEFRAttempt += 1;
         PEFRTest.attemptNum[PEFRTrial] = PEFRAttempt;
@@ -584,7 +590,7 @@ void loop_inner() {
         Serial.println(vol_flow);
         lastSample = currentMillis;
       }
-      if(vol_flow > 40)
+      if(vol_flow > 20)
       {
         Details exhalationDetail;
         exhalationDetail.flowRate = vol_flow;
@@ -618,7 +624,7 @@ void loop_inner() {
         detailsDoc.clear();
         */
       }
-      delay(100); //ToDo: adjust the delay if necessary
+      //delay(100); //ToDo: adjust the delay if necessary
     }
     else if(ble.isConnected() == false) 
     {
@@ -704,6 +710,20 @@ void printContents(String fileName){
   }
 }
 
+void writeToFile(String filename, String data) {
+  // Open the file for writing (creates the file if it doesn't exist)
+  File file = SD.open(filename, FILE_WRITE);
+  
+  if (file) {
+    // Write the data to the file
+    file.print(data);
+    // Close the file
+    file.close();
+  } else {
+    Serial.println(F("Error opening the file!"));
+  }
+}
+
 void rewriteConfigFile(String filename, Config config){
   JsonDocument doc;
   JsonObject root= doc.to<JsonObject>();
@@ -782,7 +802,9 @@ void logMedicationHeader(String filename, Inhaler curInhaler){
   serializeJsonPretty(header,Serial);
   Serial.println();
 
+  writeToFile(filename, "\"header:\"");
   appendJson(filename, header);
+  writeToFile(filename, "\"details\": [");
   headerDoc.clear();
   return;
 }
@@ -1090,7 +1112,7 @@ void sendAndDeleteAllFilesBT(){
       lastFileSend = millis(); //update the file send time once you have fully sent the file
     }
     else{
-      loop_inner();
+      //loop_inner();
     }
   }
   dir.close();
@@ -1106,7 +1128,7 @@ void sendContentsAndRemoveBT(String fileName)
   int totalBytes = file.size();
   if (file) {
     if(fileName.startsWith("M00")){
-      ble.println("#INHALATION[");
+      ble.println("#INHALATION{");
     }
     else if(fileName.startsWith("E00")){
       ble.println("#EXHALATION");
@@ -1116,7 +1138,6 @@ void sendContentsAndRemoveBT(String fileName)
         if(ble.isConnected()){
           char character = (char)file.read();
           receiveContentsBT();
-          loop_inner(); //ToDo CHECK MEEEE -- see if I acn do loop inner here, 
           buffer += character;
           if(character==10){ //ASCII code for new line
             ble.print(buffer);
@@ -1135,7 +1156,7 @@ void sendContentsAndRemoveBT(String fileName)
 
     if(ble.isConnected()){
       if(fileName.startsWith("M00")){
-        ble.print("]");
+        ble.print("]}");
       }
       ble.println("@"); //flag for end file transfer
       file.close();
@@ -1243,17 +1264,21 @@ float calculate_volflow(float pres){
   }
   else{
     vol_flow = sqrt((2*pres)/(1.293*((1/pow(0.000182,2))-(1/pow(0.0013795,2)))))*60000;
-    float lps = vol_flow/60;
-    //Kath's formula
-    if(lps < 2.066){
-      vol_flow = 60*(0.0426*lps - 0.0016);
+    
+    if(hasInhaler == true){
+      float lps = vol_flow/60;
+      //Kath's formula
+      if(lps < 2.066){
+        vol_flow = 60*(0.0426*lps - 0.0016);
+      }
+      else{
+        vol_flow = 60*(0.4076*lps - 0.7560);
+      }
+      if(vol_flow < 0){
+        vol_flow = 0;
+      }
     }
-    else{
-      vol_flow = 60*(0.4076*lps - 0.7560);
-    }
-    if(vol_flow < 0){
-      vol_flow = 0;
-    }
+
   }  
   return vol_flow;
 }
