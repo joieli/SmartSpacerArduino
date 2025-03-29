@@ -175,7 +175,7 @@ unsigned long nextLastPressTime = 0;
 unsigned long redoLastPressTime = 0;
 unsigned long nextButtonPressStartTime = 0;
 
-const int debounceDelay = 100; 
+const int debounceDelay = 250; 
 const unsigned long longPressThreshold = 3000;
 
 //file vars
@@ -198,7 +198,7 @@ unsigned int numLEDs = 4;
 //misc
 unsigned long lastInhaleAboveThresh = 0;
 unsigned long lastFileSend = 0;
-const unsigned long fileSendDelay = 1000;
+const unsigned long fileSendDelay = 2000;
 const unsigned int medicationTimeout = 10000; //10 second timeout
 unsigned int prevBattery = 0;
 String jsonDataBT = "";
@@ -416,6 +416,21 @@ void loop_inner() {
         curInhaler.startTime = getTime();
         lastInhaleAboveThresh = millis();
 
+        //light up LEDs to register that device has been attached
+        for(int i = 0; i<2; i++){
+          setColor("green", 0);
+          setColor("green", 1);
+          setColor("green", 2);
+          setColor("red", 3); //because we mapped wrong
+          delay(100);
+          setColor("off", 0);
+          setColor("off", 1);
+          setColor("off", 2);
+          setColor("off", 3);
+          delay(100);
+        }
+
+
         //making file name
         int fileCount= countFiles();
         char tempFileName[12];
@@ -434,6 +449,19 @@ void loop_inner() {
     else if (hasTag == false && hasInhaler == true)
     {
       hasInhaler = false; //reset hasInhaler flag
+
+      for(int i = 0; i<2; i++){
+        setColor("yellow", 0);
+        setColor("yellow", 1);
+        setColor("yellow", 2);
+        setColor("yellow", 3); //because we mapped wrong
+        delay(100);
+        setColor("off", 0);
+        setColor("off", 1);
+        setColor("off", 2);
+        setColor("off", 3);
+        delay(100);
+      }
 
       Serial.println("INHALER REMOVED---------------------"); 
       Serial.print("Time: ");
@@ -479,7 +507,7 @@ void loop_inner() {
         nextPressed = false; // reset the nextPressed flag
 
         //feedback for PEFR complete
-        setColor("blue", 3);
+        setColor("blue", 0);
         delay(2000);
 
         //complete the header
@@ -804,7 +832,7 @@ void logMedicationHeader(String filename, Inhaler curInhaler){
 
   writeToFile(filename, "\"header:\"");
   appendJson(filename, header);
-  writeToFile(filename, "\"details\": [");
+  writeToFile(filename, "\"details\": [ \n");
   headerDoc.clear();
   return;
 }
@@ -908,6 +936,7 @@ void nextButtonISR() {
   if (millis() - nextLastPressTime > debounceDelay) {
     if(nextWasHeld){
       nextWasHeld = false;
+      nextLastPressTime = millis(); 
     }
     else{
       nextPressed = true;
@@ -956,7 +985,11 @@ void setColor(String color, int ledIndex) {
     red = 1;
     green = 1;
     blue = 0;
-  } else if (color == "off") {
+  } else if (color == "white"){
+    red = 1;
+    green = 1;
+    blue = 1;
+  }else if (color == "off") {
     red = 0;
     green = 0;
     blue = 0;
@@ -1008,7 +1041,7 @@ void allLEDsOff(){
 
 void lightUpPEFRLEDs(){
   for (int i=0; i<PEFRTrial; i++){
-    setColor("blue", i);
+    setColor("blue", 3-i);
   }
 
   unsigned long currentBlinkTime = millis();
@@ -1018,10 +1051,10 @@ void lightUpPEFRLEDs(){
     lastBlinkTime = currentBlinkTime;
   }
   if(blinkLEDOn == true){
-    setColor("blue", PEFRTrial);
+    setColor("blue", 3-PEFRTrial);
   }
   else{
-    setColor("off", PEFRTrial);
+    setColor("off", 3-PEFRTrial);
   }
 }
 
@@ -1033,10 +1066,10 @@ void redoLights() {
   */
 
   //Option 1 fast blinking
-  for (int i=0; i<8; i++){
-    setColor("yellow", PEFRTrial);
+  for (int i=0; i<4; i++){
+    setColor("yellow", 3-PEFRTrial);
     delay(100);
-    setColor("off", PEFRTrial);
+    setColor("off", 3-PEFRTrial);
     delay(100);
   }
 }
@@ -1074,7 +1107,7 @@ String lightUpMedLEDs(int flowRate){
     setColor("green", 0);
     setColor("green", 1);
     setColor("yellow", 2);
-    setColor("red", 3);
+    setColor("green", 3); //we mapped this wrong
 
     return "red";
   }
@@ -1112,7 +1145,7 @@ void sendAndDeleteAllFilesBT(){
       lastFileSend = millis(); //update the file send time once you have fully sent the file
     }
     else{
-      //loop_inner();
+      loop_inner();
     }
   }
   dir.close();
@@ -1141,7 +1174,7 @@ void sendContentsAndRemoveBT(String fileName)
           buffer += character;
           if(character==10){ //ASCII code for new line
             ble.print(buffer);
-            //loop_inner(); //so we can do functionality even while sending data
+            loop_inner(); //so we can do functionality even while sending data
             buffer = "";
           }          
         }
