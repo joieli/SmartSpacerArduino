@@ -10,6 +10,9 @@ void TC3_Handler();
 
 volatile bool sensorReadNeeded = false;
 volatile uint32_t totalElapsedUs = 0; // Free-running microseconds counter
+volatile uint32_t overflowCount = 0;  // For TC4 overflow tracking
+volatile uint16_t lastCount = 0;     // For TC4 overflow detection
+volatile uint32_t interruptTime = 0;
 
 const int sampleTime = 5; // time between samples (ms)
 unsigned long lastSample = 0;
@@ -83,6 +86,7 @@ void setup() {
   Wire.begin();        // join i2c bus
   Serial.begin(9600);  // start serial read
   startTimer(200);     // 200 Hz = 5ms
+  startFreeRunningTimer();
   while(!Serial);
 }
 
@@ -90,8 +94,12 @@ void loop() {
   if (sensorReadNeeded){
     sensorReadNeeded = false;
     uint32_t timestamp = getTimeUs(); // Timestamp when ISR fired
+    //uint32_t timestamp = getTimeUs();
+    uint32_t now = getMicroseconds();
     get_data(); // Takes 900µs–1330µs
-    Serial.print(timestamp);
+    Serial.print(now);
+    Serial.print(",");
+    Serial.print(interruptTime);
     Serial.print(",");
     Serial.print(temperature);
     Serial.print(",");
@@ -172,6 +180,42 @@ void TC3_Handler() {
   if (TC->INTFLAG.bit.MC0 == 1) {
     TC->INTFLAG.bit.MC0 = 1;
     // Write callback here!!!
+    interruptTime = getMicroseconds();
     sensorReadNeeded = true;
   }
+}
+
+void startFreeRunningTimer() {
+  REG_GCLK_CLKCTRL = (uint16_t)(GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID_TC4_TC5);
+  while (GCLK->STATUS.bit.SYNCBUSY);
+
+  TcCount16* TC = (TcCount16*) TC4;
+  TC->CTRLA.reg &= ~TC_CTRLA_ENABLE;
+  while (TC->STATUS.bit.SYNCBUSY);
+
+  // Configure TC4 in 16-bit NFRQ mode (no reset)
+  TC->CTRLA.reg |= TC_CTRLA_MODE_COUNT16 | TC_CTRLA_WAVEGEN_NFRQ | TC_CTRLA_PRESCALER_DIV64;
+  while (TC->STATUS.bit.SYNCBUSY);
+
+  TC->CTRLA.reg |= TC_CTRLA_ENABLE;  // Start timer
+  while (TC->STATUS.bit.SYNCBUSY);
+}
+
+uint32_t getMicroseconds() {
+  //return ((TcCount16*)TC4)->COUNT.reg * (1000000UL / (CPU_HZ / TIMER_PRESCALER_DIV));
+  noInterrupts();
+  TcCount16* TC = (TcCount16*) TC4;
+  uint16_t currentCount = TC->COUNT.reg;
+  uint32_t overflowSnapshot = overflowCount;
+  interrupts();
+
+  // Detect overflow (if timer wrapped around)
+  if (currentCount < lastCount) {
+    overflowSnapshot++;
+  }
+  lastCount = currentCount;
+
+  // Calculate total µs
+  uint64_t totalTicks = (uint64_t)overflowSnapshot * 65536 + currentCount;
+  return (totalTicks * 1000000UL) / (CPU_HZ / TIMER_PRESCALER_DIV);
 }

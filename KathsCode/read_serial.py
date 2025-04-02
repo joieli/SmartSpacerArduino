@@ -28,7 +28,7 @@ def main():
         ser.close()
         
         # Save to CSV
-        df = pd.DataFrame(data, columns=['SoftwareTimestamp','hardwaretime', "Temperature",'Flow', 'Pressure', 'TimeDuration'])
+        df = pd.DataFrame(data, columns=['SoftwareTimestamp','hardwareLoop','hardwareISR', "Temperature",'Flow', 'Pressure', 'TimeDuration'])
         df.to_csv(OUTPUT_FILE, index=False)
         print(f"Data saved to {OUTPUT_FILE}")
 
