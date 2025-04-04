@@ -18,3 +18,6 @@
 
 5msother_Export1  -- sensor_data_20250403_100924
 10msother_Export1 -- sensor_data_20250403_100708
+
+possible exhale setup switch occuring at 10ms_Export3 or 20ms_Export1
+switch from mouth -> spacer -> spiro to mouth -> spiro -> spacer
